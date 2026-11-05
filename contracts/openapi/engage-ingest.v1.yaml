@@ -1,0 +1,287 @@
+openapi: 3.1.0
+info:
+  title: HireMe Engagement Engine - inbound APIs (ingest and webhooks)
+  version: 1.0.0-rc1
+  description: |
+    Endpoints the engine exposes to the HireMe backend, the Promo API and channel providers.
+    Human-readable source: docs/API.md §3-4. Contract versioning: docs/DATA_MODEL.md §2.5.
+
+    * `POST /engage/v1/events` is the **future** real-time event webhook (dual logging, spec 3 and 8.1).
+      It is implemented and contract-tested by the engine in Phase 1 but disabled until the backend handoff.
+    * The other webhooks are used now by the mock Promo API and mock channel services and later by the real ones.
+
+    Authentication: HMAC-SHA256 over `"{timestamp}.{raw_body}"` with a shared secret, sent as
+    `X-HireMe-Signature: t=<unix seconds>,v1=<hex>` plus `X-HireMe-Key-Id` for rotation.
+    Requests whose timestamp differs from server time by more than 300 s are rejected (401 STALE_TIMESTAMP).
+servers:
+  - url: https://{host}
+    variables:
+      host: { default: engage-api.example.test }
+security:
+  - hmacSignature: []
+paths:
+  /engage/v1/events:
+    post:
+      operationId: ingestEvents
+      summary: Ingest a batch of analytics events (future backend webhook)
+      description: |
+        1-500 events, at most 1 MB (gzip allowed). Ordering is not required. Deduplicated by `event_uuid`,
+        so retries are safe. Schema failures reject only the failing event (`status: rejected`), not the batch.
+        The envelope `source` field is set by the engine to `webhook` and ignored if sent.
+        Sender retry policy: on 429/5xx/timeout, exponential backoff for up to 24 h.
+        Target latency from occurrence to POST: p95 < 5 s. Pilot throughput: 50 events/s sustained, 500/s burst.
+      parameters:
+        - $ref: '#/components/parameters/KeyId'
+        - $ref: '#/components/parameters/Signature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items:
+                    $ref: '../events/v1/generated/envelope.schema.json'
+            examples:
+              riya_b2:
+                summary: Booking abandoned, then booked (one duplicate on retry)
+                value:
+                  events:
+                    - contract_version: "1.0"
+                      event_uuid: 01936f2e-6b1a-7c3e-9a4f-2b8d1e0c5a77
+                      event_name: booking_abandoned
+                      event_ts: "2026-10-21T18:10:12.345+05:30"
+                      user_id: u_88213
+                      user_pseudo_id: 6f1c2b9a8e7d4c3b
+                      platform: ANDROID
+                      app_version: 5.4.1
+                      city_id: 3
+                      origin: client
+                      params: { step: confirm, fare_estimate: 420.0, vehicle_type: mini, pickup_zone: NOI-S62, drop_zone: DEL-CP, drop_area_name: Connaught Place, fare_quote_id: fq_7781203 }
+                    - contract_version: "1.0"
+                      event_uuid: 01936f2f-0c11-7a01-8f2e-55aa10cc0e01
+                      event_name: ride_booked
+                      event_ts: "2026-10-21T18:31:02.000+05:30"
+                      user_id: u_88213
+                      user_pseudo_id: 6f1c2b9a8e7d4c3b
+                      platform: SERVER
+                      city_id: 3
+                      origin: server
+                      params: { ride_id: r_4821, fare_estimate: 420.0, promo_code: GO15-7KQ2, is_scheduled: false, vehicle_type: mini, payment_method: upi, pickup_zone: NOI-S62, drop_zone: DEL-CP }
+      responses:
+        '202':
+          description: Batch processed; per-event results
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IngestResult' }
+              examples:
+                mixed:
+                  value:
+                    accepted: 1
+                    duplicates: 1
+                    rejected: 0
+                    results:
+                      - { event_uuid: 01936f2e-6b1a-7c3e-9a4f-2b8d1e0c5a77, status: accepted }
+                      - { event_uuid: 01936f2f-0c11-7a01-8f2e-55aa10cc0e01, status: duplicate }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+
+  /engage/v1/webhooks/promo-redeemed:
+    post:
+      operationId: promoRedeemed
+      summary: A promo code was redeemed on a completed ride (spec 8.2)
+      description: |
+        Called by the Promo API (the mock now). Deduplicated on `event_id`. Effect: promo marked redeemed,
+        budget ledger `redeem` entry, inbox event `promo_redeemed` (origin server).
+      parameters:
+        - $ref: '#/components/parameters/KeyId'
+        - $ref: '#/components/parameters/Signature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PromoRedeemedWebhook' }
+            examples:
+              go15:
+                value:
+                  event_id: prx_778812
+                  promo_id: 55120
+                  code: GO15-7KQ2
+                  user_id: u_88213
+                  ride_id: r_4821
+                  discount_inr: 63.0
+                  gross_fare_inr: 464.5
+                  redeemed_at: "2026-10-21T18:31:40+05:30"
+                  meta: { campaign_id: pb_B2_abandoned_booking, playbook_id: B2_abandoned_booking, created_by: ai }
+      responses:
+        '200':
+          description: Applied or duplicate
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { enum: [applied, duplicate] }
+              examples:
+                applied: { value: { status: applied } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+
+  /engage/v1/webhooks/delivery/{provider}:
+    post:
+      operationId: deliveryStatus
+      summary: Delivery receipt from a channel provider (mocks call the same endpoint)
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { enum: [fcm, sms, email, whatsapp] }
+        - $ref: '#/components/parameters/KeyId'
+        - $ref: '#/components/parameters/Signature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliveryStatusWebhook' }
+            examples:
+              delivered:
+                value:
+                  provider_message_id: "projects/hireme-engage-dev/messages/0:1792412415%31bd"
+                  message_id: msg_8f3a91c2e0d4b7a65c1e2f90_1
+                  status: delivered
+                  at: "2026-10-21T18:20:16+05:30"
+                  error_code: null
+      responses:
+        '200': { description: Recorded }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /engage/v1/l/{token}:
+    get:
+      operationId: trackedLink
+      summary: Tracked redirect for SMS, email and WhatsApp links
+      description: Emits `notification_opened` (origin server) and redirects to the deep link or web fallback. Tokens are HMAC-signed and carry message_id, user_id, channel; expiry 30 days.
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '302': { description: Redirect to the deep link or web fallback }
+        '410': { description: Token expired }
+
+  /engage/v1/unsubscribe/{token}:
+    get:
+      operationId: unsubscribePage
+      summary: One-click unsubscribe page
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Confirmation page (HTML) }
+    post:
+      operationId: unsubscribeOneClick
+      summary: RFC 8058 List-Unsubscribe-Post one-click unsubscribe
+      description: Consent is withdrawn immediately (hireme_riders stub now; Rider API consent write-back after handoff) and `consent_changed` is emitted.
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Unsubscribed }
+
+components:
+  securitySchemes:
+    hmacSignature:
+      type: apiKey
+      in: header
+      name: X-HireMe-Signature
+      description: "t=<unix seconds>,v1=<hex HMAC-SHA256 of \"{t}.{raw_body}\">"
+  parameters:
+    KeyId:
+      name: X-HireMe-Key-Id
+      in: header
+      required: true
+      schema: { type: string, examples: [k2026a] }
+    Signature:
+      name: X-HireMe-Signature
+      in: header
+      required: true
+      schema: { type: string, pattern: '^t=[0-9]+,v1=[0-9a-f]{64}$' }
+  responses:
+    Problem:
+      description: RFC 9457 problem details (docs/API.md §1.4)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        code: { type: string, examples: [BAD_SIGNATURE, STALE_TIMESTAMP, RATE_LIMITED] }
+        detail: { type: string }
+        errors:
+          type: array
+          items: { type: object, properties: { path: { type: string }, message: { type: string } } }
+        request_id: { type: string }
+    IngestResult:
+      type: object
+      required: [accepted, duplicates, rejected, results]
+      properties:
+        accepted: { type: integer, minimum: 0 }
+        duplicates: { type: integer, minimum: 0 }
+        rejected: { type: integer, minimum: 0 }
+        results:
+          type: array
+          items:
+            type: object
+            required: [event_uuid, status]
+            properties:
+              event_uuid: { type: [string, 'null'] }
+              status: { enum: [accepted, duplicate, rejected] }
+              errors:
+                type: array
+                items: { type: object, properties: { path: { type: string }, message: { type: string } } }
+    PromoRedeemedWebhook:
+      type: object
+      additionalProperties: false
+      required: [event_id, promo_id, code, user_id, ride_id, discount_inr, redeemed_at, meta]
+      properties:
+        event_id: { type: string, description: Dedupe key chosen by the Promo API }
+        promo_id: { type: integer, minimum: 1 }
+        code: { type: string, pattern: '^[A-Z0-9][A-Z0-9-]{2,19}$' }
+        user_id: { type: string, pattern: '^u_[0-9]{1,12}$' }
+        ride_id: { type: string, pattern: '^r_[0-9]{1,12}$' }
+        discount_inr: { type: number, minimum: 0 }
+        gross_fare_inr: { type: number, minimum: 0 }
+        redeemed_at: { type: string, format: date-time }
+        meta:
+          type: object
+          required: [campaign_id, created_by]
+          properties:
+            campaign_id: { type: string }
+            playbook_id: { type: [string, 'null'] }
+            created_by: { enum: [ai, admin] }
+            decision_id: { type: string }
+            engage_promo_ref: { type: string }
+    DeliveryStatusWebhook:
+      type: object
+      additionalProperties: false
+      required: [provider_message_id, message_id, status, at]
+      properties:
+        provider_message_id: { type: string }
+        message_id: { type: string, pattern: '^msg_[0-9a-f]{12,32}_[1-9][0-9]?$' }
+        status: { enum: [delivered, failed, bounced, complained, read, dnd_blocked] }
+        at: { type: string, format: date-time }
+        error_code: { type: [string, 'null'] }

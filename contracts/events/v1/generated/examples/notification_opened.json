@@ -1,0 +1,17 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-7748-9b51-75a2d4e1d2c0",
+  "event_name": "notification_opened",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "user_pseudo_id": "6f1c2b9a8e7d4c3b9a0e1f2d3c4b5a69",
+  "platform": "ANDROID",
+  "app_version": "5.4.1",
+  "city_id": 3,
+  "origin": "client",
+  "params": {
+    "campaign_id": "pb_B2_abandoned_booking",
+    "message_id": "msg_8f3a91c2e0d4b7a65c1e2f90_1",
+    "channel": "push"
+  }
+}

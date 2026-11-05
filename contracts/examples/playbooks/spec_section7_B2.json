@@ -1,0 +1,41 @@
+{
+  "playbook_id": "B2_abandoned_booking",
+  "enabled": true,
+  "trigger": {
+    "event": "booking_abandoned",
+    "wait_minutes": 10,
+    "cancel_if": [
+      "ride_booked"
+    ]
+  },
+  "audience": {
+    "cities": [
+      "Noida",
+      "Delhi"
+    ],
+    "min_total_rides": 0
+  },
+  "promo": {
+    "allowed": true,
+    "ladder": [
+      0,
+      10,
+      15,
+      20
+    ],
+    "max_discount_inr": 75,
+    "validity_minutes": 30,
+    "single_use": true
+  },
+  "channels": [
+    "push",
+    "sms"
+  ],
+  "cooldown_hours": 24,
+  "budget": {
+    "daily_inr": 5000,
+    "monthly_inr": 100000
+  },
+  "autonomy": 2,
+  "holdout_percent": 10
+}

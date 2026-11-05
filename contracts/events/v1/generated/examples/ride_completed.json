@@ -1,0 +1,23 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-7412-8690-9c67b90ddd62",
+  "event_name": "ride_completed",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "platform": "SERVER",
+  "city_id": 3,
+  "origin": "server",
+  "params": {
+    "ride_id": "r_4821",
+    "final_fare": 401.5,
+    "distance_km": 18.9,
+    "payment_method": "upi",
+    "promo_used": true,
+    "promo_code": "GO15-7KQ2",
+    "discount_inr": 63.0,
+    "gross_fare": 464.5,
+    "vehicle_type": "mini",
+    "pickup_zone": "NOI-S62",
+    "drop_zone": "DEL-CP"
+  }
+}

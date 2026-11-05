@@ -1,0 +1,193 @@
+openapi: 3.1.0
+info:
+  title: HireMe Rider Profile API (to be provided by the HireMe backend)
+  version: 1.0.0-rc1
+  description: |
+    Read-only rider profile and consent API the engine calls through its `RiderDirectory` adapter
+    (human-readable source: docs/API.md §5). **Until the backend handoff the engine serves the same JSON
+    from the Firestore stub `hireme_riders/{user_id}`**, so this schema is also the stub's document shape (D-013, D-074).
+
+    Requirements: p95 < 100 ms for a single rider, < 1 s for a batch of 500; 404 for unknown users;
+    the engine skips riders whose `status` is not `active`.
+    Service authentication (Google OIDC token, or API key + mTLS) is to be agreed (OQ-10).
+servers:
+  - url: https://{host}
+    variables:
+      host: { default: hireme-backend.example.test }
+security:
+  - serviceToken: []
+paths:
+  /api/engage/v1/riders/{user_id}:
+    get:
+      operationId: getRider
+      summary: Rider profile, contact, push tokens and consent
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Rider profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RiderProfile' }
+              examples:
+                riya: { $ref: '#/components/examples/Riya' }
+        '404': { description: Unknown user }
+  /api/engage/v1/riders:batchGet:
+    post:
+      operationId: batchGetRiders
+      summary: Up to 500 riders in one call (batch playbooks)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [user_ids]
+              properties:
+                user_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  uniqueItems: true
+                  items: { type: string, pattern: '^u_[0-9]{1,12}$' }
+            examples:
+              two: { value: { user_ids: [u_88213, u_99999] } }
+      responses:
+        '200':
+          description: Riders found and ids not found
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [riders, not_found]
+                properties:
+                  riders: { type: array, items: { $ref: '#/components/schemas/RiderProfile' } }
+                  not_found: { type: array, items: { type: string } }
+  /api/engage/v1/riders/{user_id}/consent:
+    post:
+      operationId: writeConsent
+      summary: Consent write-back for engine-originated unsubscribes
+      description: The backend stores the change and then emits `consent_changed` through `POST /engage/v1/events`.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConsentWrite' }
+            examples:
+              email_unsub:
+                value: { channel: email, opted_in: false, source: unsubscribe_link, at: "2026-10-22T09:12:00+05:30" }
+      responses:
+        '204': { description: Stored }
+        '404': { description: Unknown user }
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      description: Google-signed OIDC token for the engine service account (or API key + mTLS; OQ-10).
+  parameters:
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema: { type: string, pattern: '^u_[0-9]{1,12}$' }
+  schemas:
+    Timestamp:
+      type: string
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+    ConsentEntry:
+      type: object
+      additionalProperties: false
+      required: [opted_in, updated_at, source]
+      properties:
+        opted_in: { type: boolean }
+        updated_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        source:
+          type: [string, 'null']
+          enum: [signup, app_settings, unsubscribe_link, stop_sms, support, engine, null]
+    RiderProfile:
+      type: object
+      additionalProperties: false
+      required: [user_id, city_id, first_name, language, signup_ts, contact, push_tokens, consent, status]
+      properties:
+        user_id: { type: string, pattern: '^u_[0-9]{1,12}$' }
+        city_id: { type: integer, minimum: 1 }
+        first_name: { type: string, maxLength: 40, description: 'Only personal field sent to the LLM (D-035).' }
+        language: { type: string, pattern: '^[a-z]{2}$' }
+        signup_ts: { $ref: '#/components/schemas/Timestamp' }
+        contact:
+          type: object
+          additionalProperties: false
+          required: [phone_e164, email, phone_dnd, email_verified]
+          properties:
+            phone_e164: { type: [string, 'null'], pattern: '^\+[1-9][0-9]{7,14}$', description: 'PII: never sent to the LLM or logged unmasked.' }
+            email: { type: [string, 'null'], maxLength: 254, description: 'PII: never sent to the LLM or logged unmasked.' }
+            phone_dnd: { type: boolean, description: 'TRAI DND registry: promotional SMS blocked.' }
+            email_verified: { type: boolean }
+        push_tokens:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [token, platform, updated_at]
+            properties:
+              token: { type: string }
+              platform: { enum: [ANDROID, IOS] }
+              updated_at: { $ref: '#/components/schemas/Timestamp' }
+              stale: { type: boolean, default: false }
+        consent:
+          type: object
+          additionalProperties: false
+          required: [push, email, sms, whatsapp]
+          properties:
+            push: { $ref: '#/components/schemas/ConsentEntry' }
+            email: { $ref: '#/components/schemas/ConsentEntry' }
+            sms: { $ref: '#/components/schemas/ConsentEntry' }
+            whatsapp: { $ref: '#/components/schemas/ConsentEntry' }
+        wallet_balance_inr: { type: number }
+        device_id_hash: { type: [string, 'null'], pattern: '^[0-9a-f]{32}$' }
+        payment_fingerprints: { type: array, items: { type: string } }
+        birth_month_day: { type: [string, 'null'], pattern: '^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$' }
+        referral:
+          type: object
+          additionalProperties: false
+          properties:
+            code: { type: [string, 'null'] }
+            referred_by_user_id: { type: [string, 'null'] }
+        status: { enum: [active, blocked, deleted] }
+        is_synthetic: { type: boolean, description: 'Dev stub only (hireme_riders); never sent by the real API (D-012).' }
+    ConsentWrite:
+      type: object
+      additionalProperties: false
+      required: [channel, opted_in, source, at]
+      properties:
+        channel: { enum: [push, email, sms, whatsapp] }
+        opted_in: { type: boolean }
+        source: { enum: [unsubscribe_link, stop_sms, engine] }
+        at: { $ref: '#/components/schemas/Timestamp' }
+  examples:
+    Riya:
+      value:
+        user_id: u_88213
+        city_id: 3
+        first_name: Riya
+        language: en
+        signup_ts: "2026-03-14T11:02:00+05:30"
+        contact: { phone_e164: "+919990012345", email: riya.s@example.test, phone_dnd: false, email_verified: true }
+        push_tokens:
+          - { token: fcm_tok_synthetic_88213, platform: ANDROID, updated_at: "2026-10-20T09:00:00+05:30" }
+        consent:
+          push: { opted_in: true, updated_at: "2026-03-14T11:02:00+05:30", source: app_settings }
+          email: { opted_in: true, updated_at: "2026-03-14T11:02:00+05:30", source: signup }
+          sms: { opted_in: true, updated_at: "2026-03-14T11:02:00+05:30", source: signup }
+          whatsapp: { opted_in: false, updated_at: null, source: null }
+        wallet_balance_inr: 42.0
+        device_id_hash: 9b1f6c0e2d4a8b7c3e5f1a9d0c2b4e6f
+        payment_fingerprints: [pf_3c9e01]
+        birth_month_day: "07-21"
+        referral: { code: RIYA50, referred_by_user_id: null }
+        status: active
+        is_synthetic: true

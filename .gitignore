@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets and local config
+.env
+.env.*
+secrets/
+.claude/settings.local.json
+
+# Generated synthetic data (reproducible from seed)
+data/gen/
+
+# Client material: kept locally, not published (repo is public)
+docs/reference/
+docs/client/

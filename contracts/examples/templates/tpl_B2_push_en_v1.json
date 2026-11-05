@@ -1,0 +1,19 @@
+{
+  "template_id": "tpl_B2_push_en_v1",
+  "playbook_id": "B2_abandoned_booking",
+  "channel": "push",
+  "language": "en",
+  "message_class": "marketing",
+  "title": "Still heading to {drop_area}?",
+  "body": "Complete your ride in the next {validity_minutes} min and save {discount_label} with {promo_code}.",
+  "variables": [
+    "drop_area",
+    "validity_minutes",
+    "discount_label",
+    "promo_code"
+  ],
+  "llm_personalisable": true,
+  "approved_by": null,
+  "approved_at": null,
+  "status": "draft"
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HireMe Engagement Message Template v1",
+  "description": "One message template for (playbook, channel, language). Firestore engage_templates/{template_id}; source files templates/<template_id>.yaml. Source: docs/DATA_MODEL.md §4.2. Prices and codes are placeholders, never literal text (spec 9). Placeholder-vs-variables consistency is checked in code by engage.tools.validate_contract.",
+  "type": "object",
+  "required": ["template_id", "playbook_id", "channel", "language", "message_class", "body", "variables", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "template_id": { "type": "string", "pattern": "^tpl_[A-H][0-9]_(push|sms|email|whatsapp|in_app)_[a-z]{2}_v[0-9]+$", "examples": ["tpl_B2_push_en_v1"] },
+    "playbook_id": { "type": "string", "pattern": "^[A-H][0-9]_[a-z0-9_]{3,40}$" },
+    "channel": { "enum": ["push", "sms", "email", "whatsapp", "in_app"] },
+    "language": { "type": "string", "pattern": "^[a-z]{2}$" },
+    "message_class": { "enum": ["transactional", "service", "marketing"] },
+    "title": { "type": "string", "maxLength": 80, "description": "Push title or email subject." },
+    "body": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "variables": {
+      "type": "array", "uniqueItems": true,
+      "items": { "enum": ["first_name", "drop_area", "pickup_landmark", "fare", "amount", "promo_code", "expiry", "discount_label", "validity_minutes", "scheduled_time", "ride_ref"] }
+    },
+    "llm_personalisable": { "type": "boolean", "default": false },
+    "variants": { "type": "array", "items": { "type": "object" }, "description": "LLM-approved phrasing variants (Phase 2)." },
+    "dlt": {
+      "type": "object", "additionalProperties": false, "required": ["template_id", "sender_id", "pe_id", "category"],
+      "properties": {
+        "template_id": { "type": "string" },
+        "sender_id": { "type": "string", "pattern": "^[A-Z]{6}$" },
+        "pe_id": { "type": "string" },
+        "category": { "enum": ["transactional", "service_implicit", "service_explicit", "promotional"] }
+      }
+    },
+    "wa_template": {
+      "type": "object", "additionalProperties": false, "required": ["name", "language"],
+      "properties": { "name": { "type": "string" }, "namespace": { "type": "string" }, "language": { "type": "string" } }
+    },
+    "approved_by": { "type": ["string", "null"] },
+    "approved_at": { "type": ["string", "null"] },
+    "status": { "enum": ["draft", "approved", "retired"] }
+  },
+  "allOf": [
+    { "if": { "properties": { "channel": { "const": "sms" } }, "required": ["channel"] },
+      "then": { "required": ["dlt"], "properties": { "llm_personalisable": { "const": false } } } },
+    { "if": { "properties": { "channel": { "const": "whatsapp" } }, "required": ["channel"] },
+      "then": { "required": ["wa_template"], "properties": { "llm_personalisable": { "const": false } } } },
+    { "if": { "properties": { "channel": { "enum": ["push", "email"] } }, "required": ["channel"] },
+      "then": { "required": ["title"] } }
+  ]
+}

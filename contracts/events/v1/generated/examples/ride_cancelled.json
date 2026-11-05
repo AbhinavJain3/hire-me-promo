@@ -1,0 +1,16 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-7b6e-bade-ef38ac596fcd",
+  "event_name": "ride_cancelled",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "platform": "SERVER",
+  "city_id": 3,
+  "origin": "server",
+  "params": {
+    "ride_id": "r_4821",
+    "cancelled_by": "driver",
+    "reason": "wait_too_long",
+    "wait_seconds": 540
+  }
+}

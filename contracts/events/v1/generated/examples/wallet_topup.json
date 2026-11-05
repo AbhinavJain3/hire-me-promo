@@ -1,0 +1,14 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-7a66-86fd-1ab8ad15e1e7",
+  "event_name": "wallet_topup",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "platform": "SERVER",
+  "city_id": 3,
+  "origin": "server",
+  "params": {
+    "amount": 500.0,
+    "balance_after": 542.0
+  }
+}

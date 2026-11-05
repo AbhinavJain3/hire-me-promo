@@ -1,0 +1,108 @@
+{
+  "playbook_id": "B2_abandoned_booking",
+  "version": 1,
+  "name": "Abandoned booking",
+  "description": "Rider left the booking screen and did not book within 10 minutes (spec 5.2 B2).",
+  "category": "B",
+  "phase": 1,
+  "enabled": true,
+  "message_class": "marketing",
+  "priority": 20,
+  "exclusive_group": "intent_recovery",
+  "trigger": {
+    "type": "event_delay",
+    "event": "booking_abandoned",
+    "where": [
+      {
+        "param": "step",
+        "op": "in",
+        "value": [
+          "fare",
+          "vehicle",
+          "confirm"
+        ]
+      }
+    ],
+    "wait_minutes": 10,
+    "cancel_if": [
+      "ride_booked"
+    ],
+    "on_retrigger": "restart",
+    "max_lateness_minutes": 20
+  },
+  "audience": {
+    "cities": [
+      "Noida",
+      "Delhi"
+    ],
+    "min_total_rides": 0,
+    "segments_exclude": [
+      "fraud_flagged"
+    ]
+  },
+  "promo": {
+    "allowed": true,
+    "type": "percent",
+    "ladder": [
+      0,
+      10,
+      15,
+      20
+    ],
+    "max_discount_inr": 75,
+    "min_fare_inr": 100,
+    "validity_minutes": 30,
+    "single_use": true,
+    "user_locked": true,
+    "vehicle_types": "same_as_trigger",
+    "code_prefix": "GO",
+    "no_promo_if_discount_trained": true
+  },
+  "scoring": {
+    "scorer": "heuristic_v1",
+    "min_uplift": 0.02,
+    "likely_to_book_p0": 0.6,
+    "value_basis": "fare",
+    "exploration_percent": 10
+  },
+  "channels": [
+    "push",
+    "sms"
+  ],
+  "channel_policy": {
+    "fallback_on": [
+      "undeliverable",
+      "no_token",
+      "no_consent"
+    ],
+    "fallback_after_unopened_minutes": null
+  },
+  "templates": {
+    "push": {
+      "en": "tpl_B2_push_en_v1",
+      "hi": "tpl_B2_push_hi_v1"
+    },
+    "sms": {
+      "en": "tpl_B2_sms_en_v1",
+      "hi": "tpl_B2_sms_hi_v1"
+    }
+  },
+  "timing": {
+    "send": "immediate",
+    "quiet_hours": "respect",
+    "max_defer_minutes": 0
+  },
+  "cooldown_hours": 24,
+  "attribution": {
+    "window_hours": 24,
+    "conversion_event": "ride_booked"
+  },
+  "budget": {
+    "daily_inr": 5000,
+    "monthly_inr": 100000,
+    "alert_threshold_pct": 80,
+    "hard_stop": true
+  },
+  "autonomy": 2,
+  "holdout_percent": 10
+}

@@ -1,0 +1,435 @@
+# HireMe Engagement Engine - analytics event catalogue (contract hireme.engage.event v1)
+#
+# THIS FILE IS THE SINGLE SOURCE OF TRUTH for event names, parameters, types, required flags,
+# examples, origins and delivery paths (decision D-067). Everything under
+# contracts/events/v1/generated/ is produced from it by:
+#
+#     .venv/bin/python -m engage.tools.gen_contract
+#
+# and checked for drift by `.venv/bin/python -m engage.tools.validate_contract --all`.
+# Do not edit generated files by hand. Human-readable reference: generated/EVENTS.md.
+#
+# Versioning (docs/DATA_MODEL.md §2.5, D-005): new optional param or new event = minor;
+# new required param, rename, removal, type change, enum value removed = major.
+#
+# Param types:
+#   string | int | double | bool | enum (with `values`)  - base types
+#   or a named type from `types:` below.
+# GA4 export column per base type (D-057): string/enum -> string_value, int/bool -> int_value
+# (bool as 0/1), double -> double_value.
+#
+# Fields per event:
+#   group        catalogue section
+#   in_spec      true if listed in spec section 3 (otherwise added by this contract)
+#   origins      which systems may author the event (D-042): client (app) | server (HireMe backend) | auto (Firebase automatic)
+#   delivery     how it reaches the engine after backend handoff: webhook (POST /engage/v1/events) and/or ga4 (BigQuery export)
+#   user_id_nullable  true if user_id may be null (pre-login / automatic events)
+#   params       name -> {type, required, example, in_spec, notes}
+#                in_spec on a param defaults to the event's in_spec value.
+
+contract: hireme.engage.event
+document_version: 1.0.0-rc1
+event_contract_version: "1.0"
+
+limits:                     # Firebase Analytics rules (spec section 3)
+  name_max_len: 40
+  params_per_event_max: 25  # includes the GA4-only common params below
+  string_value_max_len: 100
+  user_property_name_max_len: 24
+  user_property_value_max_len: 36
+  reserved_event_names: [ad_activeview, ad_click, ad_exposure, ad_impression, ad_query, ad_reward,
+    adunit_exposure, app_background, app_clear_data, app_exception, app_install, app_store_refund,
+    app_store_subscription_cancel, app_store_subscription_convert, app_store_subscription_renew,
+    app_update, app_upgrade, dynamic_link_app_open, dynamic_link_app_update, dynamic_link_first_open,
+    error, first_open, first_visit, in_app_purchase, notification_dismiss, notification_foreground,
+    notification_open, notification_receive, os_update, screen_view, session_start, user_engagement]
+  reserved_prefixes: [firebase_, google_, ga_]
+  # app_remove is a Firebase automatic event; it is allowed here only with origins: [auto].
+
+enums:
+  vehicle_type: [mini, sedan, prime, suv]
+  payment_method: [cash, upi, card, wallet]
+  channel: [push, sms, email, whatsapp, in_app]
+  consent_channel: [push, email, sms, whatsapp]
+  signup_method: [phone, google, apple]
+
+types:
+  user_id:            { base: string, pattern: "^u_[0-9]{1,12}$", example: u_88213 }
+  ride_id:            { base: string, pattern: "^r_[0-9]{1,12}$", example: r_4821 }
+  zone_id:            { base: string, pattern: "^[A-Z]{3}-[A-Z0-9]{1,8}(-[A-Z0-9]{1,8})?$", example: NOI-S62 }
+  fare_quote_id:      { base: string, pattern: "^fq_[0-9]{1,12}$", example: fq_7781203 }
+  booking_attempt_id: { base: string, pattern: "^ba_[0-9]{1,12}$", example: ba_550192 }
+  promo_code:         { base: string, pattern: "^[A-Z0-9][A-Z0-9-]{2,19}$", example: GO15-7KQ2 }
+  campaign_id:        { base: string, pattern: "^(cmp_[a-z0-9]{1,24}|pb_[A-H][0-9]_[a-z0-9_]{3,40})$", example: cmp_1042 }
+  playbook_id:        { base: string, pattern: "^[A-H][0-9]_[a-z0-9_]{3,40}$", example: B2_abandoned_booking }
+  message_id:         { base: string, pattern: "^msg_[0-9a-f]{12,32}_[1-9][0-9]?$", example: msg_8f3a91c2e0d4b7a65c1e2f90_1 }
+  timestamp:          { base: string, pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$", example: "2026-11-03T05:30:00+05:30" }
+  area_name:          { base: string, min_length: 1, max_length: 100, example: Connaught Place }
+  hash32:             { base: string, pattern: "^[0-9a-f]{32}$", example: 9b1f6c0e2d4a8b7c3e5f1a9d0c2b4e6f }
+  inr:                { base: double, minimum: 0, example: 420.0 }
+  vehicle_type:       { base: enum, values_from: vehicle_type, example: mini }
+  payment_method:     { base: enum, values_from: payment_method, example: upi }
+
+# Envelope fields that are also written as GA4 event_params on every custom event (D-004, D-042).
+# They live at the top level of the envelope, NOT inside `params`.
+ga4_common_params:
+  event_uuid:       { type: string, ga4_column: string_value }
+  contract_version: { type: string, ga4_column: string_value }
+  origin:           { type: string, ga4_column: string_value }
+  city_id:          { type: int,    ga4_column: int_value }
+
+# Optional param allowed inside `params` of every event (deep-link attribution, DATA_MODEL §2.2).
+common_params:
+  engage_message_id: { type: message_id, required: false, in_spec: false,
+                       notes: "Set when the screen was reached from an engine deep link (mid=...); attach to every event in that session for 30 min." }
+
+user_properties:
+  # Firebase setUserProperty only accepts strings, so every value is a string (D-070).
+  city:                      { pattern: "^[A-Za-z ]{2,36}$", owner: app, example: Noida, now_later: "NOW -> GA4" }
+  signup_date:               { pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", owner: backend, example: "2026-06-14", now_later: "NOW -> GA4" }
+  total_rides:               { pattern: "^[0-9]{1,6}$", owner: backend, example: "37", now_later: "NOW -> GA4" }
+  last_ride_date:            { pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", owner: backend, example: "2026-10-19", now_later: "NOW -> GA4" }
+  preferred_vehicle:         { enum_from: vehicle_type, owner: engine, example: mini, now_later: ENGINE }
+  preferred_payment:         { enum_from: payment_method, owner: engine, example: upi, now_later: ENGINE }
+  price_sensitivity:         { values: [low, medium, high], owner: engine, example: high, now_later: "ENGINE (app must not set, D-062)" }
+  home_zone:                 { type: zone_id, owner: engine, example: NOI-S62, now_later: ENGINE }
+  work_zone:                 { type: zone_id, owner: engine, example: DEL-CP, now_later: ENGINE }
+  lifetime_value_band:       { values: [low, mid, high, top], owner: engine, example: mid, now_later: ENGINE }
+  marketing_opt_in_push:     { values: ["0", "1"], owner: backend, example: "1", now_later: "NOW -> GA4 (segmentation only; consent truth is the Rider API, D-053)" }
+  marketing_opt_in_email:    { values: ["0", "1"], owner: backend, example: "0", now_later: "NOW -> GA4 (segmentation only)" }
+  marketing_opt_in_sms:      { values: ["0", "1"], owner: backend, example: "1", now_later: "NOW -> GA4 (segmentation only)" }
+  marketing_opt_in_wa:       { values: ["0", "1"], owner: backend, example: "0", now_later: "NOW -> GA4 (segmentation only). Short name: GA4 user property names are max 24 chars" }
+  language:                  { pattern: "^[a-z]{2}$", owner: app, example: en, now_later: "NOW -> GA4" }
+  is_synthetic:              { values: ["0", "1"], owner: generator, example: "1", now_later: "Dev project only (D-012)" }
+
+events:
+
+  # ---------------------------------------------------------------- onboarding
+  app_open:
+    group: onboarding
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    user_id_nullable: true
+    description: App launched. Logged as a custom event (Firebase automatic events cannot carry custom params).
+    params:
+      source:      { type: enum, values: [organic, push, deeplink, email, sms, whatsapp], required: true, example: push }
+      app_version: { type: string, max_length: 20, required: true, example: "5.4.1" }
+
+  sign_up_started:
+    group: onboarding
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    user_id_nullable: true
+    description: Rider entered a phone number (pre-login, user_id is null; D-047).
+    params:
+      method: { type: enum, values_from: signup_method, required: true, example: phone }
+
+  sign_up:
+    group: onboarding
+    in_spec: true
+    origins: [client, server]
+    delivery: [ga4, webhook]
+    description: OTP verified, account created. Emitted after setUserId. Server-authored after handoff.
+    params:
+      method:         { type: enum, values_from: signup_method, required: true, example: phone }
+      referral_code:  { type: promo_code, required: false, example: NEHA50 }
+      city:           { type: area_name, required: true, example: Noida }
+      device_id_hash: { type: hash32, required: true, in_spec: false, notes: "SHA-256 of the device id, first 32 hex chars; multi-account fraud check (spec 9)." }
+
+  profile_completed:
+    group: onboarding
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Name, email and photo saved.
+    params:
+      has_email: { type: bool, required: true, example: true }
+
+  location_permission:
+    group: onboarding
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Location permission granted or denied.
+    params:
+      status:    { type: enum, values: [granted, denied], required: true, example: denied }
+      precision: { type: enum, values: [precise, approximate], required: false, in_spec: false, example: approximate }
+
+  # ---------------------------------------------------------------- booking funnel
+  fare_check:
+    group: booking_funnel
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Pickup and drop entered, fare shown.
+    params:
+      pickup_zone:      { type: zone_id, required: true, example: NOI-S62 }
+      drop_zone:        { type: zone_id, required: true, example: DEL-CP }
+      distance_km:      { type: double, minimum: 0, required: true, example: 18.4 }
+      fare_estimate:    { type: inr, required: true, example: 420.0, notes: "Price of the displayed/default vehicle." }
+      vehicle_type:     { type: vehicle_type, required: true, example: mini }
+      surge_multiplier: { type: double, minimum: 1, required: true, example: 1.0, notes: "1.0 = no surge." }
+      fare_quote_id:    { type: fare_quote_id, required: true, in_spec: false, notes: "Links fare_check -> booking -> ride." }
+      drop_area_name:   { type: area_name, required: true, in_spec: false, notes: "Fills {drop_area} in templates without a geo lookup." }
+      pickup_area_name: { type: area_name, required: false, in_spec: false, example: Sector 62 }
+
+  vehicle_selected:
+    group: booking_funnel
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Rider picked a vehicle category.
+    params:
+      vehicle_type:  { type: vehicle_type, required: true, example: sedan }
+      fare_estimate: { type: inr, required: true, example: 512.0 }
+      fare_quote_id: { type: fare_quote_id, required: true, in_spec: false }
+
+  booking_started:
+    group: booking_funnel
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Rider tapped Book / Confirm.
+    params:
+      vehicle_type:       { type: vehicle_type, required: true }
+      payment_method:     { type: payment_method, required: true }
+      fare_estimate:      { type: inr, required: true }
+      fare_quote_id:      { type: fare_quote_id, required: true, in_spec: false }
+      booking_attempt_id: { type: booking_attempt_id, required: true, in_spec: false }
+
+  booking_abandoned:
+    group: booking_funnel
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Rider left the booking screen without confirming. B3 handles step=payment; B2 handles the other steps.
+    params:
+      step:               { type: enum, values: [fare, vehicle, payment, confirm], required: true, example: confirm }
+      fare_estimate:      { type: inr, required: true }
+      vehicle_type:       { type: vehicle_type, required: true, in_spec: false }
+      payment_method:     { type: payment_method, required: false, in_spec: false, example: card, notes: "Needed by B3." }
+      pickup_zone:        { type: zone_id, required: true, in_spec: false }
+      drop_zone:          { type: zone_id, required: true, in_spec: false, example: DEL-CP }
+      drop_area_name:     { type: area_name, required: true, in_spec: false }
+      fare_quote_id:      { type: fare_quote_id, required: true, in_spec: false }
+      booking_attempt_id: { type: booking_attempt_id, required: false, in_spec: false, notes: "Absent if abandoned before booking_started." }
+
+  ride_booked:
+    group: booking_funnel
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    server_authoritative: true
+    description: Booking created on the server.
+    params:
+      ride_id:            { type: ride_id, required: true }
+      fare_estimate:      { type: inr, required: true }
+      promo_code:         { type: promo_code, required: false }
+      is_scheduled:       { type: bool, required: true, example: false }
+      vehicle_type:       { type: vehicle_type, required: true, in_spec: false }
+      payment_method:     { type: payment_method, required: true, in_spec: false }
+      pickup_zone:        { type: zone_id, required: true, in_spec: false }
+      drop_zone:          { type: zone_id, required: true, in_spec: false, example: DEL-CP }
+      fare_quote_id:      { type: fare_quote_id, required: false, in_spec: false }
+      booking_attempt_id: { type: booking_attempt_id, required: false, in_spec: false }
+
+  no_driver_found:
+    group: booking_funnel
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    description: Driver search timed out.
+    params:
+      pickup_zone:        { type: zone_id, required: true, example: NOI-S18 }
+      wait_seconds:       { type: int, minimum: 0, required: true, example: 240 }
+      vehicle_type:       { type: vehicle_type, required: true, in_spec: false }
+      booking_attempt_id: { type: booking_attempt_id, required: true, in_spec: false, example: ba_550301 }
+
+  payment_failed:
+    group: booking_funnel
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    server_authoritative: true
+    description: Payment declined.
+    params:
+      ride_id:    { type: ride_id, required: true }
+      method:     { type: payment_method, required: true, example: card }
+      error_code: { type: string, max_length: 40, pattern: "^[A-Z0-9_]{2,40}$", required: true, example: CARD_DECLINED }
+      amount_inr: { type: inr, required: true, in_spec: false, example: 318.0, notes: "B8 message 'Tap to pay ₹318'." }
+
+  # ---------------------------------------------------------------- scheduled rides
+  ride_scheduled:
+    group: scheduled_rides
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    description: Scheduled ride added.
+    params:
+      ride_id:         { type: ride_id, required: true, example: r_9012 }
+      scheduled_time:  { type: timestamp, required: true }
+      pickup_zone:     { type: zone_id, required: true, example: NOI-S137 }
+      drop_zone:       { type: zone_id, required: true, example: DEL-IGI-T3 }
+      drop_area_name:  { type: area_name, required: true, in_spec: false, example: IGI Airport T3 }
+      pickup_landmark: { type: area_name, required: false, in_spec: false, example: Gate 2, notes: "Used in the C2 message." }
+
+  scheduled_ride_cancelled:
+    group: scheduled_rides
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    description: Rider cancelled a scheduled ride.
+    params:
+      ride_id:      { type: ride_id, required: true, example: r_9012 }
+      hours_before: { type: double, minimum: 0, required: true, example: 6.5 }
+
+  # ---------------------------------------------------------------- ride lifecycle
+  ride_cancelled:
+    group: ride_lifecycle
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    description: Rider, driver or system cancelled a ride.
+    params:
+      ride_id:      { type: ride_id, required: true }
+      cancelled_by: { type: enum, values: [rider, driver, system], required: true, example: driver }
+      reason:       { type: enum, values: [driver_far, changed_plans, wait_too_long, price, other], required: true, example: wait_too_long }
+      wait_seconds: { type: int, minimum: 0, required: true, example: 540 }
+
+  ride_started:
+    group: ride_lifecycle
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    description: Trip began.
+    params:
+      ride_id: { type: ride_id, required: true }
+
+  ride_completed:
+    group: ride_lifecycle
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    server_authoritative: true
+    description: Trip ended.
+    params:
+      ride_id:        { type: ride_id, required: true }
+      final_fare:     { type: inr, required: true, example: 401.5, notes: "After discount." }
+      distance_km:    { type: double, minimum: 0, required: true, example: 18.9 }
+      payment_method: { type: payment_method, required: true }
+      promo_used:     { type: bool, required: true, example: true }
+      promo_code:     { type: promo_code, required: false, in_spec: false }
+      discount_inr:   { type: inr, required: false, in_spec: false, example: 63.0, notes: "Actual discount applied." }
+      gross_fare:     { type: inr, required: true, in_spec: false, example: 464.5, notes: "Pre-discount fare; needed for incremental fare value." }
+      vehicle_type:   { type: vehicle_type, required: true, in_spec: false }
+      pickup_zone:    { type: zone_id, required: true, in_spec: false }
+      drop_zone:      { type: zone_id, required: true, in_spec: false, example: DEL-CP }
+
+  ride_rated:
+    group: ride_lifecycle
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Rating submitted.
+    params:
+      ride_id:     { type: ride_id, required: true }
+      rating:      { type: int, minimum: 1, maximum: 5, required: true, example: 2 }
+      has_comment: { type: bool, required: true, example: true }
+
+  # ---------------------------------------------------------------- promo, referral, wallet, support, notifications
+  promo_viewed:
+    group: promo_and_engagement
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Promo code seen.
+    params:
+      promo_code:  { type: promo_code, required: true }
+      campaign_id: { type: campaign_id, required: true }
+      playbook_id: { type: playbook_id, required: false, in_spec: false }
+
+  promo_applied:
+    group: promo_and_engagement
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Promo code applied at booking.
+    params:
+      promo_code:  { type: promo_code, required: true }
+      campaign_id: { type: campaign_id, required: true }
+      playbook_id: { type: playbook_id, required: false, in_spec: false }
+
+  referral_shared:
+    group: promo_and_engagement
+    in_spec: true
+    origins: [client]
+    delivery: [ga4, webhook]
+    description: Invite link shared.
+    params:
+      channel: { type: enum, values: [whatsapp, sms, copy_link, other], required: true, example: whatsapp }
+
+  wallet_topup:
+    group: promo_and_engagement
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    description: Wallet recharged.
+    params:
+      amount:        { type: inr, required: true, example: 500.0 }
+      balance_after: { type: inr, required: false, in_spec: false, example: 542.0 }
+
+  support_ticket_opened:
+    group: promo_and_engagement
+    in_spec: true
+    origins: [server]
+    delivery: [webhook]
+    description: Help request raised.
+    params:
+      category: { type: enum, values: [ride_issue, driver_behaviour, payment, safety, lost_item, other], required: true, example: ride_issue }
+      ride_id:  { type: ride_id, required: false, in_spec: false }
+
+  notification_opened:
+    group: promo_and_engagement
+    in_spec: true
+    origins: [client, server]
+    delivery: [ga4, webhook]
+    description: Push tapped (client), or email/SMS/WhatsApp link opened through the engine redirect (server-emitted by the engine).
+    params:
+      campaign_id: { type: campaign_id, required: true, example: pb_B2_abandoned_booking }
+      message_id:  { type: message_id, required: true }
+      channel:     { type: enum, values_from: channel, required: true, in_spec: false, example: push }
+
+  # ---------------------------------------------------------------- additions (not in spec section 3)
+  app_remove:
+    group: additions
+    in_spec: false
+    origins: [auto]
+    delivery: [ga4]
+    user_id_nullable: true
+    description: Firebase automatic uninstall event (Android only). Arrives via the GA4 export only; the GA4 poller synthesises a deterministic UUIDv5 event_uuid (D-072). E6 uninstall signal.
+    params: {}
+
+  consent_changed:
+    group: additions
+    in_spec: false
+    origins: [server]
+    delivery: [webhook]
+    description: Marketing consent changed for a channel; lets the engine invalidate its consent cache in real time (spec 9, D-053).
+    params:
+      channel:       { type: enum, values_from: consent_channel, required: true, example: email }
+      opted_in:      { type: bool, required: true, example: false }
+      change_source: { type: enum, values: [app_settings, unsubscribe_link, stop_sms, support, engine], required: true, example: unsubscribe_link }
+
+  promo_redeemed:
+    group: additions
+    in_spec: false
+    origins: [server]
+    delivery: [webhook]
+    description: Promo code redeemed on a completed ride (from the Promo API redemption hook). Budget ledger "redeemed" leg (D-020). Produced by the mock Promo API in the current phase.
+    params:
+      promo_id:     { type: int, minimum: 1, required: true, example: 55120 }
+      promo_code:   { type: promo_code, required: true }
+      ride_id:      { type: ride_id, required: true }
+      discount_inr: { type: inr, required: true, example: 63.0 }

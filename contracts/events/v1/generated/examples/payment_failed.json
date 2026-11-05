@@ -1,0 +1,16 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-79ee-9275-962e40ccfb9e",
+  "event_name": "payment_failed",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "platform": "SERVER",
+  "city_id": 3,
+  "origin": "server",
+  "params": {
+    "ride_id": "r_4821",
+    "method": "card",
+    "error_code": "CARD_DECLINED",
+    "amount_inr": 318.0
+  }
+}

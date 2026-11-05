@@ -1,0 +1,23 @@
+{
+  "template_id": "tpl_B2_sms_en_v1",
+  "playbook_id": "B2_abandoned_booking",
+  "channel": "sms",
+  "language": "en",
+  "message_class": "marketing",
+  "body": "HireMe: Complete your ride in the next {validity_minutes} min and save {discount_label} with code {promo_code}. T&C apply.",
+  "variables": [
+    "validity_minutes",
+    "discount_label",
+    "promo_code"
+  ],
+  "llm_personalisable": false,
+  "dlt": {
+    "template_id": "PENDING_DLT_B2_EN",
+    "sender_id": "HIREME",
+    "pe_id": "PENDING_PE_ID",
+    "category": "promotional"
+  },
+  "approved_by": null,
+  "approved_at": null,
+  "status": "draft"
+}

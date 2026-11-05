@@ -1,0 +1,14 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-7b5a-b753-df1664e75887",
+  "event_name": "support_ticket_opened",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "platform": "SERVER",
+  "city_id": 3,
+  "origin": "server",
+  "params": {
+    "category": "ride_issue",
+    "ride_id": "r_4821"
+  }
+}

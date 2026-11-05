@@ -1,0 +1,434 @@
+{
+  "description": "Envelope <-> GA4 BigQuery export mapping. GENERATED from catalog.yaml - do not edit.",
+  "contract_version": "1.0",
+  "envelope_fields": {
+    "event_name": "event_name",
+    "event_ts": "event_timestamp (microseconds since epoch, UTC); event_date = IST date as YYYYMMDD",
+    "user_id": "user_id",
+    "user_pseudo_id": "user_pseudo_id",
+    "platform": "platform (server-origin events: rider device platform in GA4; SERVER in the envelope, D-069)",
+    "app_version": "app_info.version",
+    "event_uuid": "event_params[key=event_uuid].value.string_value",
+    "contract_version": "event_params[key=contract_version].value.string_value",
+    "origin": "event_params[key=origin].value.string_value",
+    "city_id": "event_params[key=city_id].value.int_value",
+    "params.<name>": "event_params[key=<name>].value.<column per param below>",
+    "user_properties.<name>": "user_properties[key=<name>].value.string_value",
+    "source": "(not in GA4; set by the engine adapter)",
+    "received_at": "(not in GA4; set by the engine on ingest)"
+  },
+  "common_params": {
+    "event_uuid": "string_value",
+    "contract_version": "string_value",
+    "origin": "string_value",
+    "city_id": "int_value",
+    "engage_message_id": "string_value"
+  },
+  "events": {
+    "app_open": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "source": "string_value",
+        "app_version": "string_value"
+      }
+    },
+    "sign_up_started": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "method": "string_value"
+      }
+    },
+    "sign_up": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client",
+        "server"
+      ],
+      "params": {
+        "method": "string_value",
+        "referral_code": "string_value",
+        "city": "string_value",
+        "device_id_hash": "string_value"
+      }
+    },
+    "profile_completed": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "has_email": "int_value"
+      }
+    },
+    "location_permission": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "status": "string_value",
+        "precision": "string_value"
+      }
+    },
+    "fare_check": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "pickup_zone": "string_value",
+        "drop_zone": "string_value",
+        "distance_km": "double_value",
+        "fare_estimate": "double_value",
+        "vehicle_type": "string_value",
+        "surge_multiplier": "double_value",
+        "fare_quote_id": "string_value",
+        "drop_area_name": "string_value",
+        "pickup_area_name": "string_value"
+      }
+    },
+    "vehicle_selected": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "vehicle_type": "string_value",
+        "fare_estimate": "double_value",
+        "fare_quote_id": "string_value"
+      }
+    },
+    "booking_started": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "vehicle_type": "string_value",
+        "payment_method": "string_value",
+        "fare_estimate": "double_value",
+        "fare_quote_id": "string_value",
+        "booking_attempt_id": "string_value"
+      }
+    },
+    "booking_abandoned": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "step": "string_value",
+        "fare_estimate": "double_value",
+        "vehicle_type": "string_value",
+        "payment_method": "string_value",
+        "pickup_zone": "string_value",
+        "drop_zone": "string_value",
+        "drop_area_name": "string_value",
+        "fare_quote_id": "string_value",
+        "booking_attempt_id": "string_value"
+      }
+    },
+    "ride_booked": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "ride_id": "string_value",
+        "fare_estimate": "double_value",
+        "promo_code": "string_value",
+        "is_scheduled": "int_value",
+        "vehicle_type": "string_value",
+        "payment_method": "string_value",
+        "pickup_zone": "string_value",
+        "drop_zone": "string_value",
+        "fare_quote_id": "string_value",
+        "booking_attempt_id": "string_value"
+      }
+    },
+    "no_driver_found": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "pickup_zone": "string_value",
+        "wait_seconds": "int_value",
+        "vehicle_type": "string_value",
+        "booking_attempt_id": "string_value"
+      }
+    },
+    "payment_failed": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "ride_id": "string_value",
+        "method": "string_value",
+        "error_code": "string_value",
+        "amount_inr": "double_value"
+      }
+    },
+    "ride_scheduled": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "ride_id": "string_value",
+        "scheduled_time": "string_value",
+        "pickup_zone": "string_value",
+        "drop_zone": "string_value",
+        "drop_area_name": "string_value",
+        "pickup_landmark": "string_value"
+      }
+    },
+    "scheduled_ride_cancelled": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "ride_id": "string_value",
+        "hours_before": "double_value"
+      }
+    },
+    "ride_cancelled": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "ride_id": "string_value",
+        "cancelled_by": "string_value",
+        "reason": "string_value",
+        "wait_seconds": "int_value"
+      }
+    },
+    "ride_started": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "ride_id": "string_value"
+      }
+    },
+    "ride_completed": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "ride_id": "string_value",
+        "final_fare": "double_value",
+        "distance_km": "double_value",
+        "payment_method": "string_value",
+        "promo_used": "int_value",
+        "promo_code": "string_value",
+        "discount_inr": "double_value",
+        "gross_fare": "double_value",
+        "vehicle_type": "string_value",
+        "pickup_zone": "string_value",
+        "drop_zone": "string_value"
+      }
+    },
+    "ride_rated": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "ride_id": "string_value",
+        "rating": "int_value",
+        "has_comment": "int_value"
+      }
+    },
+    "promo_viewed": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "promo_code": "string_value",
+        "campaign_id": "string_value",
+        "playbook_id": "string_value"
+      }
+    },
+    "promo_applied": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "promo_code": "string_value",
+        "campaign_id": "string_value",
+        "playbook_id": "string_value"
+      }
+    },
+    "referral_shared": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client"
+      ],
+      "params": {
+        "channel": "string_value"
+      }
+    },
+    "wallet_topup": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "amount": "double_value",
+        "balance_after": "double_value"
+      }
+    },
+    "support_ticket_opened": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "category": "string_value",
+        "ride_id": "string_value"
+      }
+    },
+    "notification_opened": {
+      "delivery": [
+        "ga4",
+        "webhook"
+      ],
+      "origins": [
+        "client",
+        "server"
+      ],
+      "params": {
+        "campaign_id": "string_value",
+        "message_id": "string_value",
+        "channel": "string_value"
+      }
+    },
+    "app_remove": {
+      "delivery": [
+        "ga4"
+      ],
+      "origins": [
+        "auto"
+      ],
+      "params": {}
+    },
+    "consent_changed": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "channel": "string_value",
+        "opted_in": "int_value",
+        "change_source": "string_value"
+      }
+    },
+    "promo_redeemed": {
+      "delivery": [
+        "webhook"
+      ],
+      "origins": [
+        "server"
+      ],
+      "params": {
+        "promo_id": "int_value",
+        "promo_code": "string_value",
+        "ride_id": "string_value",
+        "discount_inr": "double_value"
+      }
+    }
+  },
+  "user_properties": {
+    "city": "string_value",
+    "signup_date": "string_value",
+    "total_rides": "string_value",
+    "last_ride_date": "string_value",
+    "preferred_vehicle": "string_value",
+    "preferred_payment": "string_value",
+    "price_sensitivity": "string_value",
+    "home_zone": "string_value",
+    "work_zone": "string_value",
+    "lifetime_value_band": "string_value",
+    "marketing_opt_in_push": "string_value",
+    "marketing_opt_in_email": "string_value",
+    "marketing_opt_in_sms": "string_value",
+    "marketing_opt_in_wa": "string_value",
+    "language": "string_value",
+    "is_synthetic": "string_value"
+  }
+}

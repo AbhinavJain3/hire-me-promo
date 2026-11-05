@@ -1,0 +1,17 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-7a3b-b377-2cda590bfc4b",
+  "event_name": "promo_viewed",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "user_pseudo_id": "6f1c2b9a8e7d4c3b9a0e1f2d3c4b5a69",
+  "platform": "ANDROID",
+  "app_version": "5.4.1",
+  "city_id": 3,
+  "origin": "client",
+  "params": {
+    "promo_code": "GO15-7KQ2",
+    "campaign_id": "cmp_1042",
+    "playbook_id": "B2_abandoned_booking"
+  }
+}

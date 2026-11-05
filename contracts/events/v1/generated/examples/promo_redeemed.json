@@ -1,0 +1,16 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-73a8-8fdb-5a4f0c1e2314",
+  "event_name": "promo_redeemed",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "platform": "SERVER",
+  "city_id": 3,
+  "origin": "server",
+  "params": {
+    "promo_id": 55120,
+    "promo_code": "GO15-7KQ2",
+    "ride_id": "r_4821",
+    "discount_inr": 63.0
+  }
+}

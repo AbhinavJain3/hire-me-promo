@@ -1,0 +1,19 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-79ba-8d71-b9a5f4b0244b",
+  "event_name": "booking_started",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "user_pseudo_id": "6f1c2b9a8e7d4c3b9a0e1f2d3c4b5a69",
+  "platform": "ANDROID",
+  "app_version": "5.4.1",
+  "city_id": 3,
+  "origin": "client",
+  "params": {
+    "vehicle_type": "mini",
+    "payment_method": "upi",
+    "fare_estimate": 420.0,
+    "fare_quote_id": "fq_7781203",
+    "booking_attempt_id": "ba_550192"
+  }
+}

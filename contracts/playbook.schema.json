@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HireMe Engagement Playbook v1",
+  "description": "Configuration of one playbook (spec section 5 use case, section 7 example). Source: docs/DATA_MODEL.md §5. The spec's original B2 example validates unchanged: trigger.type defaults to event_delay (D-071). Checks that need other data (settings caps, template coverage, contract events) run in engage.tools.validate_contract and, later, engage/playbooks/validate.py.",
+  "type": "object",
+  "required": ["playbook_id", "enabled", "trigger", "channels", "cooldown_hours", "autonomy", "holdout_percent"],
+  "additionalProperties": false,
+  "properties": {
+    "playbook_id": { "type": "string", "pattern": "^[A-H][0-9]_[a-z0-9_]{3,40}$" },
+    "version": { "type": "integer", "minimum": 1 },
+    "name": { "type": "string", "maxLength": 80 },
+    "description": { "type": "string", "maxLength": 500 },
+    "category": { "enum": ["A", "B", "C", "D", "E", "F", "G", "H"] },
+    "phase": { "enum": [1, 2, 3] },
+    "enabled": { "type": "boolean" },
+    "message_class": { "enum": ["transactional", "service", "marketing"], "default": "marketing" },
+    "priority": { "type": "integer", "minimum": 0, "maximum": 100, "default": 50 },
+    "exclusive_group": { "type": ["string", "null"], "default": null },
+    "trigger": { "$ref": "#/$defs/trigger" },
+    "audience": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "cities": { "type": "array", "items": { "type": "string" } },
+        "min_total_rides": { "type": "integer", "minimum": 0 },
+        "max_total_rides": { "type": "integer", "minimum": 0 },
+        "segments_include": { "type": "array", "items": { "type": "string" } },
+        "segments_exclude": { "type": "array", "items": { "type": "string" } },
+        "languages": { "type": "array", "items": { "type": "string" } },
+        "platforms": { "type": "array", "items": { "enum": ["ANDROID", "IOS"] } }
+      }
+    },
+    "promo": {
+      "type": "object", "additionalProperties": false, "required": ["allowed"],
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "type": { "enum": ["percent", "flat", "free_ride", "cashback", "upgrade"], "default": "percent" },
+        "ladder": { "type": "array", "items": { "type": "number", "minimum": 0 }, "minItems": 1, "uniqueItems": true },
+        "max_discount_inr": { "type": "number", "minimum": 0 },
+        "min_fare_inr": { "type": "number", "minimum": 0, "default": 0 },
+        "validity_minutes": { "type": "integer", "minimum": 5, "maximum": 43200 },
+        "single_use": { "type": "boolean", "default": true },
+        "user_locked": { "type": "boolean", "default": true },
+        "first_ride_only": { "type": "boolean", "default": false },
+        "vehicle_types": { "oneOf": [ { "const": "same_as_trigger" }, { "const": "any" }, { "type": "array", "items": { "enum": ["mini", "sedan", "prime", "suv"] } } ] },
+        "code_prefix": { "type": "string", "pattern": "^[A-Z]{2,6}$" },
+        "no_promo_if_discount_trained": { "type": "boolean", "default": true },
+        "default_rung": { "type": "number", "description": "Rung used by heuristic_v1 for high price sensitivity" },
+        "reuse_code_from": { "type": "string", "pattern": "^[A-H][0-9]_[a-z0-9_]{3,40}$", "description": "Remind the rider of a code created by another playbook (A3 reuses A2) instead of creating a new one." }
+      }
+    },
+    "scoring": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "scorer": { "enum": ["heuristic_v1", "uplift_v1", "none"], "default": "heuristic_v1" },
+        "min_uplift": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.02 },
+        "likely_to_book_p0": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.6 },
+        "value_basis": { "enum": ["fare", "margin"], "default": "fare" },
+        "margin_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "exploration_percent": { "type": "number", "minimum": 0, "maximum": 50, "default": 0 }
+      }
+    },
+    "channels": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["push", "sms", "email", "whatsapp", "in_app"] } },
+    "channel_policy": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "fallback_on": { "type": "array", "items": { "enum": ["undeliverable", "no_token", "no_consent", "unopened"] } },
+        "fallback_after_unopened_minutes": { "type": ["integer", "null"], "minimum": 30 }
+      }
+    },
+    "templates": {
+      "type": "object",
+      "description": "channel -> language -> template_id",
+      "propertyNames": { "enum": ["push", "sms", "email", "whatsapp", "in_app"] },
+      "additionalProperties": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^tpl_" } }
+    },
+    "timing": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "send": { "enum": ["immediate", "best_time", "fixed"], "default": "immediate" },
+        "fixed_local_time": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$" },
+        "quiet_hours": { "enum": ["respect", "exempt"], "default": "respect" },
+        "max_defer_minutes": { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    },
+    "cooldown_hours": { "type": ["number", "null"], "minimum": 0, "description": "null = once per user for the lifetime of the playbook" },
+    "attribution": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "window_hours": { "type": "integer", "minimum": 1, "maximum": 720, "default": 24 },
+        "conversion_event": { "enum": ["ride_booked", "ride_completed", "sign_up", "profile_completed", "location_permission", "ride_rated", "wallet_topup", "referral_shared"], "default": "ride_booked" }
+      }
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "daily_inr": { "type": ["number", "null"], "minimum": 0 },
+        "monthly_inr": { "type": ["number", "null"], "minimum": 0 },
+        "alert_threshold_pct": { "type": "integer", "minimum": 1, "maximum": 100, "default": 80 },
+        "hard_stop": { "type": "boolean", "default": true }
+      }
+    },
+    "autonomy": { "enum": [0, 1, 2, 3] },
+    "holdout_percent": { "type": "number", "minimum": 0, "maximum": 50 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "message_class": { "const": "transactional" } }, "required": ["message_class"] },
+      "then": { "properties": { "promo": { "properties": { "allowed": { "const": false } } } } },
+      "description": "Transactional playbooks may not carry promos."
+    }
+  ],
+  "$defs": {
+    "condition": {
+      "type": "object", "required": ["param", "op", "value"], "additionalProperties": false,
+      "properties": {
+        "param": { "type": "string" },
+        "op": { "enum": ["eq", "neq", "in", "nin", "gt", "gte", "lt", "lte"] },
+        "value": {}
+      }
+    },
+    "cancel": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object", "required": ["event"], "additionalProperties": false,
+          "properties": {
+            "event": { "type": "string" },
+            "match_params": { "type": "array", "items": { "type": "string" } },
+            "where": { "type": "array", "items": { "$ref": "#/$defs/condition" } }
+          } }
+      ]
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["event_delay", "relative_time", "schedule", "window_count", "threshold", "external"], "default": "event_delay" },
+        "event": { "type": "string" },
+        "events_any": { "type": "array", "items": { "type": "string" }, "description": "Alternative trigger events (D2: ride_rated or support_ticket_opened); each may carry its own where via event_where." },
+        "event_where": { "type": "object", "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/condition" } } },
+        "where": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "wait_minutes": { "type": "integer", "minimum": 0, "maximum": 43200 },
+        "cancel_if": { "type": "array", "items": { "$ref": "#/$defs/cancel" } },
+        "on_retrigger": { "enum": ["restart", "ignore", "parallel"], "default": "restart" },
+        "max_lateness_minutes": { "type": "integer", "minimum": 0 },
+        "time_param": { "type": "string" },
+        "offsets_minutes": { "type": "array", "items": { "type": "integer" }, "minItems": 1 },
+        "cron_ist": { "type": "string", "pattern": "^[0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9A-Za-z*,/-]+$" },
+        "audience_segment": { "type": "string" },
+        "window_days": { "type": "integer", "minimum": 1 },
+        "min_count": { "type": "integer", "minimum": 1 },
+        "group_by_params": { "type": "array", "items": { "type": "string" } },
+        "profile_field": { "type": "string" },
+        "thresholds": { "type": "array", "items": { "type": "number" } }
+      },
+      "allOf": [
+        {
+          "if": { "anyOf": [ { "not": { "required": ["type"] } }, { "properties": { "type": { "const": "event_delay" } }, "required": ["type"] } ] },
+          "then": { "required": ["wait_minutes"], "anyOf": [ { "required": ["event"] }, { "required": ["events_any"] } ] }
+        },
+        { "if": { "properties": { "type": { "const": "relative_time" } }, "required": ["type"] }, "then": { "required": ["event", "time_param", "offsets_minutes"] } },
+        { "if": { "properties": { "type": { "const": "schedule" } }, "required": ["type"] }, "then": { "required": ["cron_ist", "audience_segment"] } },
+        { "if": { "properties": { "type": { "const": "window_count" } }, "required": ["type"] }, "then": { "required": ["event", "window_days", "min_count"] } },
+        { "if": { "properties": { "type": { "const": "threshold" } }, "required": ["type"] }, "then": { "required": ["profile_field", "thresholds"] } }
+      ]
+    }
+  }
+}

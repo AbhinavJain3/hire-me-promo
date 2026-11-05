@@ -1,0 +1,15 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-7810-bf29-b14fd1fb18da",
+  "event_name": "consent_changed",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "platform": "SERVER",
+  "city_id": 3,
+  "origin": "server",
+  "params": {
+    "channel": "email",
+    "opted_in": false,
+    "change_source": "unsubscribe_link"
+  }
+}

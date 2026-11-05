@@ -1,0 +1,22 @@
+{
+  "contract_version": "1.0",
+  "event_uuid": "01a15e79-f139-7ab0-949e-3ae73e69abea",
+  "event_name": "ride_booked",
+  "event_ts": "2026-10-21T18:10:12.345+05:30",
+  "user_id": "u_88213",
+  "platform": "SERVER",
+  "city_id": 3,
+  "origin": "server",
+  "params": {
+    "ride_id": "r_4821",
+    "fare_estimate": 420.0,
+    "promo_code": "GO15-7KQ2",
+    "is_scheduled": false,
+    "vehicle_type": "mini",
+    "payment_method": "upi",
+    "pickup_zone": "NOI-S62",
+    "drop_zone": "DEL-CP",
+    "fare_quote_id": "fq_7781203",
+    "booking_attempt_id": "ba_550192"
+  }
+}
