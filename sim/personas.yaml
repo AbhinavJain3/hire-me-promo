@@ -1,0 +1,237 @@
+# Synthetic rider personas, latent traits and ground-truth response model (docs/DUMMY_DATA_PLAN.md §4-§5).
+#
+# The engine never sees personas or latent traits (D-012): they go only to BigQuery engage_sim.
+# Behaviour (and therefore every feature the engine computes) is generated from the latent traits.
+#
+# Range [lo, hi] = uniform draw per rider. beta: [a, b] = Beta draw per rider.
+# ride_rate_per_week = trip *intents* per week (an intent may end in a ride, an abandon or a browse).
+# fare_checks_per_intent = mean number of fare_check events per intent (>= 1).
+# browse_prob / abandon_prob = base probability that an intent ends without booking
+#   (browse = fare check only, B1 trigger; abandon = booking_abandoned, B2/B3 trigger).
+#   Both are multiplied by (1 + price_elasticity) when surge > 1.2.
+# quick_rebook_prob = after an abandon/browse, probability the rider books on their own within 10 minutes
+#   (cancels the B2 timer; DUMMY_DATA_PLAN §1 "~45 %").
+# p0_after_abandon / p0_after_browse = probability of booking later (10 min - 24 h) without any message;
+#   equals the ground-truth p0 of the B2 / B1 context so history and live run agree.
+
+generator_version: "0.1.0"
+
+synthetic_identity:
+  phone_prefix: "+919990"          # synthetic range: +919990 + 6 digits from 010000 (D-079); rider index i gets +919990{i + 10000:06d}
+  email_domain: example.test       # RFC 2606 reserved, never deliverable
+  first_names: [Aarav, Aditi, Aditya, Akash, Ananya, Anjali, Ankit, Arjun, Ayesha, Deepak, Divya, Farhan, Gaurav,
+                Harsh, Ishaan, Isha, Kabir, Kavya, Komal, Kunal, Meera, Mohit, Neha, Nikhil, Nisha, Pooja, Pranav,
+                Priya, Rahul, Riya, Rohan, Sahil, Sakshi, Sameer, Sanya, Shreya, Simran, Sneha, Tanvi, Tarun,
+                Varun, Vikram, Vivek, Yash, Zoya, Aman, Bhavna, Chirag, Dev, Ritika]
+
+# Channel reachability (all personas; DUMMY_DATA_PLAN §4)
+reachability:
+  platform_android: 0.78
+  push_token_present: 0.92
+  push_token_stale: 0.05           # share of present tokens that are UNREGISTERED
+  has_email: 0.70
+  consent_push: 0.85
+  consent_email: 0.60              # only riders with an email; P(consent | has_email) = 0.60 / 0.70
+  consent_sms: 0.75
+  consent_whatsapp: 0.40
+  phone_dnd: 0.18
+  birth_month_day_present: 0.6
+  referred_by_share: 0.15
+  monthly_optout_prob: 0.003       # per rider per month, one random opted-in channel -> consent_changed
+
+# Hour-of-day weights for trip intents (IST). ~6 % of weekday intents fall between 22:00 and 05:00.
+hour_weights:
+  weekday: [0.4, 0.2, 0.1, 0.1, 0.2, 0.5, 2.0, 5.0, 8.0, 8.0, 5.0, 4.0, 4.0, 4.0, 4.0, 4.0, 5.0, 7.0, 9.0, 9.0, 7.0, 5.0, 3.0, 1.2]
+  weekend: [1.0, 0.6, 0.3, 0.2, 0.2, 0.3, 0.8, 1.5, 2.5, 3.5, 4.5, 5.5, 7.0, 7.5, 7.0, 5.5, 5.0, 5.5, 6.5, 7.5, 7.5, 7.0, 6.0, 3.0]
+
+# Ride quality and lifecycle (all personas)
+ride:
+  no_driver_base: 0.035            # per booking; x2 at weekday peak in business zones
+  no_driver_retry_prob: 0.5
+  driver_cancel_prob: 0.035
+  rider_cancel_prob: 0.03
+  driver_cancel_rebook_prob: 0.6
+  pickup_wait_median_s: 300
+  pickup_wait_sigma: 0.55          # lognormal sigma; ~10 % of waits exceed 10 minutes
+  payment_failed_prob: 0.02        # card and upi only; rider retries and pays
+  rating_prob: 0.55
+  rating_weights: { "5": 0.60, "4": 0.25, "3": 0.08, "2": 0.04, "1": 0.03 }
+  long_wait_s: 600                 # longer waits shift ratings down
+  ticket_prob: 0.012
+  ticket_prob_low_rating: 0.25
+  rating_comment_prob: 0.2
+  referral_share_prob: 0.005       # per session
+  promo_viewed_prob: 0.5           # promo_viewed before promo_applied
+
+# Historical HireMe promo codes (pre-engine, not engine-issued). Used for promo_ride_share and the fraud ring.
+historical_promos:
+  - { code: WELCOME50, promo_id: 50001, campaign_id: cmp_welcome50, kind: flat, value: 50, first_ride_only: true }
+  - { code: SAVE20,    promo_id: 50002, campaign_id: cmp_save20,    kind: pct,  value: 20, max_discount: 60 }
+  - { code: RIDE30,    promo_id: 50003, campaign_id: cmp_ride30,    kind: flat, value: 30 }
+welcome_offer_use_prob: 0.5        # new (in-history) signups use WELCOME50 on their first ride
+
+defaults:
+  ride_rate_per_week: [0.5, 1.0]
+  fare_checks_per_intent: [1.2, 1.8]
+  browse_prob: 0.20
+  abandon_prob: 0.24
+  quick_rebook_prob: 0.45
+  p0_after_abandon: 0.14
+  p0_after_browse: 0.12
+  price_elasticity: [0.3, 0.6]
+  promo_affinity: [0.2, 0.5]
+  promo_ride_share: 0.08
+  weekend_share: null              # null = natural mix from hour/day weights
+  push_open_rate: { beta: [2, 6] }
+  email_open_rate: { beta: [2, 10] }
+  churn_hazard: [0.01, 0.03]       # weekly; ground truth for the live run
+  service_tolerance: [0.4, 0.8]
+  dest_type_weights: { business: 1.0, mall: 1.0, residential: 1.2, railway: 0.5, airport: 0.15, nightlife: 0.4 }
+  vehicle_mix: { mini: 0.55, sedan: 0.30, prime: 0.10, suv: 0.05 }
+  payment_mix: { upi: 0.45, cash: 0.25, card: 0.15, wallet: 0.15 }
+  signup_within_history_share: 0.12
+  signup_earliest: "2025-03-01"
+  lifecycle: active                # active | new_not_activated | lapsed_band | fraud_ring
+  idle_app_opens_per_week: 0.3     # app opens without a trip intent
+  push_open_boost: 0.0
+
+personas:
+  P01:
+    name: price_sensitive_explorer
+    share: 0.18
+    ride_rate_per_week: [0.7, 1.1]
+    fare_checks_per_intent: [2.0, 4.0]
+    browse_prob: 0.30
+    abandon_prob: 0.32
+    quick_rebook_prob: 0.30
+    p0_after_abandon: 0.08
+    p0_after_browse: 0.10
+    price_elasticity: [0.6, 0.9]
+    promo_affinity: [0.6, 0.9]
+    promo_ride_share: 0.15
+    push_open_rate: { beta: [3.5, 6.5] }
+    vehicle_mix: { mini: 0.85, sedan: 0.15 }
+  P02:
+    name: daily_commuter
+    share: 0.15
+    ride_rate_per_week: [8.0, 10.0]   # realised by the commute pattern (two trips per weekday)
+    commute: true
+    fare_checks_per_intent: [2.0, 3.0]   # compares vehicles and waits out surge
+    browse_prob: 0.06
+    abandon_prob: 0.25
+    quick_rebook_prob: 0.70
+    p0_after_abandon: 0.45
+    p0_after_browse: 0.40
+    price_elasticity: [0.05, 0.2]
+    promo_affinity: [0.05, 0.2]
+    promo_ride_share: 0.03
+    weekend_share: 0.05
+    vehicle_mix: { mini: 0.45, sedan: 0.45, prime: 0.10 }
+    payment_mix: { upi: 0.55, card: 0.20, wallet: 0.20, cash: 0.05 }
+    churn_hazard: [0.003, 0.01]
+  P03:
+    name: weekend_leisure
+    share: 0.12
+    ride_rate_per_week: [0.8, 1.6]
+    browse_prob: 0.22
+    abandon_prob: 0.15
+    p0_after_abandon: 0.16
+    p0_after_browse: 0.18
+    weekend_share: [0.7, 0.9]
+    dest_type_weights: { mall: 3.0, nightlife: 3.0, residential: 1.0, business: 0.3, railway: 0.2, airport: 0.1 }
+    vehicle_mix: { mini: 0.45, sedan: 0.40, prime: 0.10, suv: 0.05 }
+  P04:
+    name: airport_traveller
+    share: 0.06
+    ride_rate_per_week: [0.3, 0.6]
+    airport_rides_per_90d: [2, 6]
+    scheduled_ride_cancel_prob: 0.10
+    browse_prob: 0.10
+    abandon_prob: 0.10
+    p0_after_abandon: 0.30
+    p0_after_browse: 0.25
+    price_elasticity: [0.1, 0.3]
+    vehicle_mix: { sedan: 0.55, prime: 0.35, suv: 0.10 }
+    payment_mix: { card: 0.45, upi: 0.40, wallet: 0.10, cash: 0.05 }
+  P05:
+    name: new_not_activated
+    share: 0.10
+    lifecycle: new_not_activated
+    signup_days_before_end: [0, 29]
+    ride_rate_per_week: [0.3, 0.8]     # intents without a booking (browse/abandon only)
+    browsing_rider_share: 0.4
+    never_ride_without_nudge: 0.35     # ground truth for the live run
+    push_open_rate: { beta: [3.5, 6.5] }
+    idle_app_opens_per_week: 0.6
+  P06:
+    name: casual_regular
+    share: 0.14
+    ride_rate_per_week: [0.35, 0.75]
+    p0_after_abandon: 0.14
+    p0_after_browse: 0.12
+  P07:
+    name: lapsing
+    share: 0.06
+    lifecycle: lapsed_band
+    last_ride_days_before_end: [7, 14]
+    ride_rate_per_week: [1.0, 1.8]
+    p0_after_abandon: 0.20
+    idle_app_opens_per_week: 0.1
+  P08:
+    name: lapsed
+    share: 0.07
+    lifecycle: lapsed_band
+    last_ride_days_before_end: [30, 89]
+    ride_rate_per_week: [0.5, 1.2]
+    idle_app_opens_per_week: 0.05
+  P09:
+    name: dormant
+    share: 0.06
+    lifecycle: lapsed_band
+    last_ride_days_before_end: [90, 175]
+    ride_rate_per_week: [0.3, 1.0]
+    idle_app_opens_per_week: 0.02
+    uninstall_prob: 0.3               # Android only: app_remove 14-60 days after the last ride
+  P10:
+    name: unhappy_recent
+    share: 0.03
+    ride_rate_per_week: [0.5, 1.5]
+    bad_ride_days_before_end: [0, 6]
+    service_tolerance: [0.1, 0.4]
+  P11:
+    name: discount_trained
+    share: 0.025
+    ride_rate_per_week: [0.8, 1.5]
+    abandon_prob: 0.35
+    quick_rebook_prob: 0.15
+    p0_after_abandon: 0.30
+    p0_after_browse: 0.25
+    rebook_delay_min_hours: 6         # books later anyway (no incremental effect of offers)
+    promo_affinity: [0.8, 1.0]
+    promo_ride_share: 0.70
+  P12:
+    name: fraud_ring
+    share: 0.005
+    lifecycle: fraud_ring
+    accounts_per_device: 4            # 100 accounts on 25 devices at medium scale
+    accounts_per_payment_instrument: 8
+    full_fare_rides: [0, 2]
+    ride_rate_per_week: [0.2, 0.5]
+
+# Ground truth (engage_sim.true_effects): p_convert per persona x playbook x action (DUMMY_DATA_PLAN §5).
+# action: none | reminder | pct_10 | pct_15 | pct_20 | pct_25 | pct_30 | flat_30 | flat_50 | flat_75 | flat_100
+true_effects:
+  - { persona: P01, playbook: B2_abandoned_booking,     p: { none: 0.08, reminder: 0.11, pct_10: 0.17, pct_15: 0.20, pct_20: 0.21 } }
+  - { persona: P02, playbook: B2_abandoned_booking,     p: { none: 0.45, reminder: 0.49, pct_10: 0.50, pct_15: 0.50, pct_20: 0.51 } }
+  - { persona: P06, playbook: B2_abandoned_booking,     p: { none: 0.14, reminder: 0.17, pct_10: 0.20, pct_15: 0.22, pct_20: 0.22 } }
+  - { persona: P11, playbook: B2_abandoned_booking,     p: { none: 0.30, reminder: 0.30, pct_10: 0.30, pct_15: 0.30, pct_20: 0.30 } }
+  - { persona: P01, playbook: B1_fare_check_no_booking, p: { none: 0.10, reminder: 0.12, pct_10: 0.18, pct_15: 0.21, pct_20: 0.22 } }
+  - { persona: P03, playbook: B1_fare_check_no_booking, p: { none: 0.18, reminder: 0.21, pct_10: 0.24, pct_15: 0.25, pct_20: 0.25 } }
+  - { persona: P05, playbook: A2_welcome_offer,         p: { none: 0.38, reminder: 0.45, pct_50: 0.58 } }
+  - { persona: P07, playbook: E2_lapsing_7_14d,         p: { none: 0.22, reminder: 0.27, pct_10: 0.33 } }
+  - { persona: P08, playbook: E3_lapsed_30d,            p: { none: 0.05, reminder: 0.06, pct_20: 0.10, pct_25: 0.12, pct_30: 0.13 } }
+  - { persona: P09, playbook: E4_dormant_90d,           p: { none: 0.01, reminder: 0.015, flat_100: 0.04 } }
+  - { persona: P10, playbook: D2_bad_experience,        p: { none: 0.40, reminder: 0.44, flat_75: 0.55 } }
+  - { persona: all, playbook: B5_no_driver_found,       p: { none: 0.30, reminder: 0.32, flat_30: 0.38 } }
+# Opt-out probability per message (base); fatigue and quiet-hours effects are applied by the rider responder.
+base_optout_per_message: 0.001

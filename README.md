@@ -2,7 +2,7 @@
 
 The engine reads rider behaviour (Firebase Analytics events and user properties), decides who needs a nudge (rules plus AI uplift scoring), creates promo codes through the HireMe Promo API, sends them by push, SMS, email or WhatsApp, enforces guardrails in code (budgets, frequency caps, quiet hours, consent, cooldowns, holdouts, fraud), and reports incremental lift against a holdout group.
 
-**Status (2026-11-04):** plan pending client review. Phase 0 has started: the data contract v1.0.0-rc1 is in [contracts/](contracts/README.md) (milestone M0.1). No engine runtime yet.
+**Status (2026-11-09):** plan accepted by the client (all decisions D-001 to D-086 Accepted; one open question, OQ-41). Phase 0 has started: the data contract v1.0.0-rc1 is in [contracts/](contracts/README.md) (milestone M0.1), and the synthetic data generator runs locally (`.venv/bin/python -m sim.generator --scale demo --seed 42 --history-end yesterday`, then `.venv/bin/python -m sim.validate data/gen/demo_s42`; milestone M0.3, D-078). No engine runtime yet; nothing is loaded into Firebase or BigQuery yet. The dev project starts on the free tier at `demo` scale (3,000 riders, 45 days; D-083) and moves to a client-paid Blaze project once the client signs (D-082, OQ-04).
 
 **Constraint that shapes this plan:** today the only data sources are the Firebase project (via the Firebase MCP server) and BigQuery. There is no HireMe backend webhook, no Rider DB API, and no Promo or messaging APIs we can reach. We first define the data contract, generate realistic synthetic data into Firebase and BigQuery, and prove the engine end to end on mocks. After that, the HireMe backend is changed to emit data in our format.
 
@@ -35,6 +35,19 @@ The engine reads rider behaviour (Firebase Analytics events and user properties)
 8. **[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md):** timeline, gates, backend handoff track.
 9. **[docs/DUMMY_DATA_PLAN.md](docs/DUMMY_DATA_PLAN.md):** how uplift will be proven before real riders are involved.
 10. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §6-§11 and [docs/AGENTS_AND_SKILLS.md](docs/AGENTS_AND_SKILLS.md):** detail for engineers.
+
+## Local tooling (D-085)
+
+Everything is installed inside `.venv` (Node 20 comes from nvm):
+
+```bash
+.venv/bin/pip install -r requirements-dev.txt                                   # includes install-jdk
+.venv/bin/python -c "import jdk; jdk.install('21', jre=True, path='.venv/jdk')"   # Java 21 for the emulator
+npm install --prefix .venv/node firebase-tools@15.34.1                          # Firebase CLI
+scripts/firebase.sh emulators:start --only firestore --project demo-hireme-engage-dev   # 127.0.0.1:8080
+```
+
+Point Python clients at it with `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080`. The `demo-` project id never reaches a real project.
 
 ## Conventions
 

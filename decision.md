@@ -2,7 +2,7 @@
 
 Every design decision for the HireMe AI Engagement Engine is recorded here. **Rule (see CLAUDE.md): any new or changed design decision gets a new entry with the next D- id; entries are never renumbered; superseded entries only get their Status line changed.**
 
-Common fields for all entries below unless stated: **Date** 2026-11-02 · **Status** Proposed — pending client review · **Decided by** AI (Fable 5.1).
+Common fields for all entries below unless stated: **Date** 2026-11-02 · **Status** Accepted — client review 2026-11-09 (was Proposed) · **Decided by** AI (Fable 5.1).
 
 Spec = "HireMe AI Engagement Engine: Specification", @Vinay, Oct 21 2026. OQ-xx = [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md).
 
@@ -87,6 +87,15 @@ Spec = "HireMe AI Engagement Engine: Specification", @Vinay, Oct 21 2026. OQ-xx 
 | D-075 | BigQuery tables partition by UTC date; IST days are filtered by timestamp range | Data |
 | D-076 | Contract validator doubles as the backend conformance kit | Contract |
 | D-077 | GA4 export schema: core columns now, verified against a real export at M0.2 | Data |
+| D-078 | Generator writes reproducible NDJSON files locally; loading into a project is a separate step | Dummy data |
+| D-079 | Synthetic phone range `+919990` + 6 digits | Dummy data / compliance |
+| D-080 | Short history windows: pre-window history carried in user properties; open rides and future scheduled rides left out of the stubs | Dummy data |
+| D-081 | Funnel calibration and the V4 abandon-share definition | Dummy data |
+| D-082 | Start the dev project on the free tier (Firebase Spark + BigQuery sandbox) at small scale; move to Blaze once the client signs and the service works | Deployment / cost |
+| D-083 | `demo` scale preset (3,000 riders, 45 days) as the free-tier default for loading, demos and gate evidence | Dummy data / cost |
+| D-084 | Generator `--history-end` (default 2026-10-31; `yesterday` for free-tier loads) | Dummy data |
+| D-085 | Local Firebase CLI and Java 21 installed inside `.venv`; Firestore emulator project `demo-hireme-engage-dev` | Tooling |
+| D-086 | Backend sends server events to both GA4 (Measurement Protocol) and the engine webhook | Data sources |
 
 ---
 
@@ -344,6 +353,7 @@ Spec = "HireMe AI Engagement Engine: Specification", @Vinay, Oct 21 2026. OQ-xx 
 - **Consequences:** A1 not in MVP (OQ-11).
 
 ## D-048 Synthetic data scale and time range
+- **Status:** Superseded by D-083 for the default demo and gate scale (the presets and the 180-day `medium` definition remain for the Blaze phase)
 - **Decision:** History 2026-05-05 to 2026-10-31 (180 days, enough for 90-day dormancy); live simulation from 2026-11-01 (covers Diwali 2026-11-08). Presets tiny/small/medium/large; `medium` = 20 k riders (Noida 50 %, Delhi 35 %, Gurgaon 15 %), ≈ 6 M events, sized so B2 in Noida reaches ≈ 8,000 eligible triggers within one 30-day simulated run.
 - **Consequences:** Dev project on Blaze plan (OQ-04).
 
@@ -426,76 +436,142 @@ Spec = "HireMe AI Engagement Engine: Specification", @Vinay, Oct 21 2026. OQ-xx 
 - **Consequences:** Possible adapter rework once Grepix shares its APIs (OQ-09).
 
 ## D-067 Event catalogue YAML is the single source; schemas, examples, GA4 mapping and EVENTS.md are generated
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** M0.1 needs JSON Schemas for 27 events, a GA4 mapping, examples and a readable reference. Writing each by hand means five copies of the same facts drifting apart (DATA_MODEL §2.5 asked for one schema file per event).
 - **Options considered:** (a) hand-written JSON Schema per event; (b) one YAML catalogue that generates everything; (c) Pydantic models as the source and export schemas from them.
 - **Decision:** (b). `contracts/events/v1/catalog.yaml` holds names, types, required flags, examples, origins and delivery. `engage.tools.gen_contract` writes `contracts/events/v1/generated/` (envelope schema, `ga4_mapping.json`, 27 examples, `EVENTS.md`). `validate_contract` fails if the generated files are stale.
 - **Consequences:** The backend team reads `EVENTS.md` and validates against `envelope.schema.json`. Contract changes are one YAML edit plus regeneration. DATA_MODEL §2.3 stays as the narrative, and the catalogue wins on any conflict. Engine Pydantic models (M0.5) are generated or checked against the same catalogue.
 
 ## D-068 Self-contained envelope JSON Schema; strict for senders, tolerant at ingest
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** Schemas with cross-file `$ref`s are awkward for other teams' validators (Node ajv, Java), and DATA_MODEL §2.5 says the engine must ignore unknown params and events.
 - **Options considered:** (a) one file per event with external refs; (b) one bundled schema with internal `$defs`; (c) lenient schemas that allow extra params.
 - **Decision:** (b), strict: `additionalProperties: false` on the envelope and on every event's params, `event_name` an enum, and conditional rules per event (allowed origins, nullable `user_id`). Senders validate strictly, so typos are caught at the source. At runtime the ingest adapter is tolerant: unknown params are dropped and logged, and unknown events are stored in the inbox but never trigger playbooks.
 - **Consequences:** A new minor contract version must be deployed to the engine before senders use new params, or they will be dropped (they are logged, not lost silently).
 
 ## D-069 Server-origin events: platform SERVER, user_pseudo_id optional
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** DATA_MODEL §2.1 made `user_pseudo_id` (Firebase app instance id) required for every event. The backend usually does not know it for server events such as `ride_booked`. The API.md webhook example already used `platform: SERVER`.
 - **Options considered:** (a) require the backend to store and forward the app instance id; (b) optional for server origin; (c) drop the field from server events.
 - **Decision:** (b). `origin: client` requires `user_pseudo_id` and `app_version` with platform ANDROID or IOS. `origin: server` requires `platform: SERVER`, and `user_pseudo_id` is optional. In GA4-shaped rows a server event carries the rider's device platform; converting back to an envelope restores `SERVER` from `origin`.
 - **Consequences:** Joins between server events and GA4 history use `user_id`, which is set for every non-pre-login event. OQ-38 asks the backend whether it can include the app instance id anyway.
 
 ## D-070 All user properties are strings; `marketing_opt_in_whatsapp` renamed `marketing_opt_in_wa`
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** Firebase `setUserProperty` accepts only strings, and GA4 limits user property names to 24 characters. DATA_MODEL §2.4 typed `total_rides` as int and added `marketing_opt_in_whatsapp` (25 characters), which Firebase would reject.
 - **Options considered:** For the name: `mkt_opt_in_whatsapp`, `marketing_opt_in_wa`, `opt_in_whatsapp`.
 - **Decision:** Every user property is a string with a pattern or enum (`total_rides` matches `^[0-9](1, 6)$`). The WhatsApp property is named `marketing_opt_in_wa`, which keeps the prefix shared with the other opt-in properties. The validator enforces the 24-character limit.
 - **Consequences:** SQL casts numeric user properties (`SAFE_CAST(... AS INT64)`). Neither change affects spec section 3 names.
 
 ## D-071 Playbook schema: `trigger.type` defaults to `event_delay`; additions for D2 and A3
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** DATA_MODEL §5.1 claimed the spec section 7 B2 example validates unchanged, but the draft schema required `trigger.type`, which the spec example does not have. The MVP defaults also needed shapes the schema lacked: D2 has two trigger events (`ride_rated` with rating ≤ 2, or `support_ticket_opened`), A3 reminds the rider of A2's code, and A2/A3/E4 are "once per user".
 - **Options considered:** (a) edit the spec example; (b) make `type` optional with default `event_delay`; (c) separate D2 into two playbooks.
 - **Decision:** (b). Also added: `trigger.events_any` plus `trigger.event_where` (per-event conditions), `promo.reuse_code_from`, `cooldown_hours: null` meaning once per user, `additionalProperties: false` on triggers, required fields for `window_count` and `threshold`, and a rule that transactional playbooks cannot carry promos. Cross-checks in code confirm that trigger, `cancel_if` and conversion events exist in the contract, and that `where` and `match_params` name real params.
 - **Consequences:** `contracts/examples/playbooks/spec_section7_B2.json` is kept as a regression test. DATA_MODEL §5.3 now points to `contracts/playbook.schema.json` instead of embedding a copy.
 
 ## D-072 Senders generate UUIDv7; engine synthesises UUIDv5 for Firebase automatic events
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** `event_uuid` is the dedupe key (D-004), but Firebase automatic events such as `app_remove` carry no custom params, so they have no `event_uuid`.
 - **Options considered:** (a) let them have no id; (b) random id on ingest; (c) deterministic id from GA4 fields.
 - **Decision:** (c). The GA4 poller sets `uuid5(namespace, user_pseudo_id|event_timestamp|event_name|event_bundle_sequence_id)`. The envelope schema accepts version 5 only for `origin: auto` and version 7 for everything else. The BigQuery view `v_events_flat` exposes `event_key` (the `event_uuid` param, or an MD5 of the same inputs) for SQL dedupe.
 - **Consequences:** Re-polling the same GA4 row produces the same id, so it is deduplicated. The SQL `event_key` and the poller's UUIDv5 are different strings for the same automatic event; neither is ever compared with the other.
 
 ## D-073 Hand-written OpenAPI only for cross-team interfaces; admin API spec generated from code
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** M0.1 listed four OpenAPI drafts. Three describe interfaces between the engine and the HireMe backend or providers: ingest and webhooks, Rider Profile API, Promo API. The admin API is used only by our own console, and D-009 already says FastAPI generates OpenAPI from the same models.
 - **Options considered:** (a) hand-write all four now; (b) hand-write the three cross-team ones now and generate the admin spec in Phase 1.
 - **Decision:** (b). `contracts/openapi/engage-ingest.v1.yaml`, `rider-api.v1.yaml` and `promo-api.v1.yaml` are hand-written, validated, and every example in them is checked against its schema. `engage-admin.v1.yaml` is exported from the FastAPI app in M1.5, with docs/API.md §2 as its specification.
 - **Consequences:** The admin API is not frozen at G0, which is acceptable because no other team depends on it.
 
 ## D-074 `hireme_riders` stub document shape equals the Rider Profile API `RiderProfile` schema
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** D-013 says the stub has the shape of the future Rider API response, but DATA_MODEL §4.8 listed flat fields (`phone_e164`, `email`, `dnd_registered`, `referral_code`) while API.md §5.1 nests them (`contact.*`, `referral.*`) and adds `status`.
 - **Options considered:** (a) flat stub with a mapping layer; (b) the stub stores exactly `RiderProfile`.
 - **Decision:** (b). `RiderProfile` in `rider-api.v1.yaml` is canonical. The stub may add only `is_synthetic`, and `RiderDirectory` returns the document unchanged.
 - **Consequences:** DATA_MODEL §4.8 is updated to match. Switching to the real API needs no field mapping.
 
 ## D-075 BigQuery tables partition by UTC date; IST days are filtered by timestamp range
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** The draft DDL used `PARTITION BY DATE(ts, 'Asia/Kolkata')`. BigQuery partition expressions accept `DATE(timestamp_column)` but not a time zone argument, so that DDL would fail.
 - **Options considered:** (a) UTC date partitions; (b) an extra stored `*_date_ist` column to partition on; (c) hourly partitions.
 - **Decision:** (a) for timestamp-partitioned tables. Queries for an IST day filter `ts >= TIMESTAMP('YYYY-MM-DD 00:00:00', 'Asia/Kolkata') AND ts < next day`, which prunes to at most two UTC partitions. Tables that already hold an IST `DATE` column (`snapshot_date`, `ledger_date`) keep partitioning on it. The validator rejects partition expressions that include a time zone.
 - **Consequences:** An IST-day query scans up to two partitions, which is negligible at pilot volume.
 
 ## D-076 Contract validator doubles as the backend conformance kit
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** Backend handoff step HB1 promises a conformance test kit. Building a separate tool would duplicate the validation logic.
 - **Decision:** `.venv/bin/python -m engage.tools.validate_contract --events FILE...` validates single envelopes, arrays, webhook bodies or NDJSON against the generated schema and prints every violation. `--all` runs the repository checks (Firebase naming limits, generated files current, schemas compile, doc examples, GA4 round trip, OpenAPI and their examples, playbooks, templates, Firestore, DDL).
 - **Consequences:** HB1 hands over `contracts/` plus this tool. A standalone package for the backend team can come later if they do not use Python.
 
 ## D-077 GA4 export schema: core columns now, verified against a real export at M0.2
-- **Date:** 2026-11-04 · **Status:** Proposed — pending client review · **Decided by:** AI (Claude Opus 5.5)
+- **Date:** 2026-11-04 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
 - **Context:** DATA_MODEL §3.1 asks for the official GA4 export schema verbatim. We have no access to a real export yet, and Google adds columns over time (for example `session_traffic_source_last_click`, `publisher`).
 - **Decision:** `contracts/bigquery/ga4_events_schema.json` holds the stable core columns, including `event_params`, `user_properties`, `device`, `geo`, `app_info`, `traffic_source`, `ecommerce`, `items` and `collected_traffic_source`. At M0.2 it is diffed against a real export table (OQ-03) or Google's published schema, and missing columns are added as NULLABLE.
 - **Consequences:** The engine reads only columns that are present, so queries on the real export are unaffected by columns we lack.
+
+## D-078 Generator writes reproducible NDJSON files locally; loading into a project is a separate step
+- **Date:** 2026-11-09 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
+- **Context:** M0.3 needs synthetic history, but the dev project `hireme-engage-dev` does not exist yet (OQ-04), and the data will later live in a project the client creates.
+- **Options considered:** (a) generate straight into BigQuery/Firestore; (b) generate files locally, load with separate loaders; (c) generate locally and ship the files to the client.
+- **Decision:** (b). `python -m sim.generator --scale <preset> --seed <n>` writes NDJSON files to `data/gen/<scale>_s<seed>/` (git-ignored): canonical envelopes and GA4 export rows per IST day, `hireme_ref`, `hireme_backend_stub`, `engage_sim` tables, `hireme_riders` RiderProfile documents, and `manifest.json` (generation_id, counts, per-file sha256). `hireme_ref` is NDJSON rather than the CSV mentioned in DUMMY_DATA_PLAN §2, so all loads use one format. Output is byte-identical for the same (scale, seed, config); `generation_id` includes a hash of the config and generator code. `python -m sim.validate <dir>` runs file-based versions of V1-V10, V13, V14.
+- **Consequences:** The client's project is filled by re-running the generator with the same seed and the loaders (M0.3), so large files never need to be shipped; copying the files through Cloud Storage remains possible. V11 and V12 still need the project and a simulated run. Per-day event files are gzipped NDJSON (`events_YYYYMMDD.ndjson.gz`, gzip mtime 0 so output stays byte-identical); GA4 rows are about 3.8 KB each uncompressed, so `small` would otherwise take 4.4 GB and `medium` about 40 GB. BigQuery loads gzipped NDJSON directly. `sim.validate` streams the files (about 60 MB memory at any scale).
+
+## D-079 Synthetic phone range `+919990` + 6 digits
+- **Date:** 2026-11-09 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
+- **Context:** DUMMY_DATA_PLAN §7 uses `+91999001xxxx`, which holds only 10,000 numbers; `medium` needs 20,000 riders and `large` 100,000.
+- **Options considered:** (a) keep `+91999001xxxx` and reuse numbers; (b) widen to `+919990` + 6 digits starting at `010000`.
+- **Decision:** (b). Rider index i gets `+919990{i + 10000:06d}`, so the first 10,000 riders keep the original `+91999001xxxx` range (the Riya example `+919990012345` stays valid). V14 checks `^\+919990[0-9]{6}$`. Emails stay `@example.test`.
+- **Consequences:** Before any real SMS gateway is connected in dev, the mock and any test gateway must reject numbers outside this range (compliance-reviewer to confirm the range is unallocated).
+
+## D-080 Short history windows: pre-window history carried in user properties; open rides and future scheduled rides left out of the stubs
+- **Date:** 2026-11-09 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
+- **Context:** The `tiny` preset covers only 30 days, so lapsed (30-89 days) and dormant (90+ days) riders have no rides inside the window. History also ends at 2026-10-31 23:59 IST while some rides and scheduled rides continue past it.
+- **Decision:** Rides before the window are not emitted as events; the rider's `total_rides` and `last_ride_date` user properties carry an estimated pre-window count and the true last ride date, so features and recency bands stay consistent. Events after the history end are dropped; rides whose final state falls after the end are left out of `hireme_backend_stub.rides`; scheduled rides whose pickup is after the end go to `state/open_scheduled_rides.ndjson` for the live simulator (M0.5).
+- **Consequences:** On `tiny`, lapsed and dormant riders appear only through user properties and rare app opens; `small`/`medium` (180 days) have their real rides. The live simulator must pick up open scheduled rides.
+
+## D-081 Funnel calibration and the V4 abandon-share definition
+- **Date:** 2026-11-09 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** AI (Claude Opus 5.5)
+- **Context:** With the persona table as written, commuters (P02, 8-10 rides/week) produce about 75 % of all bookings and almost never abandon, so the V4 funnel targets failed (fare_check → booked 0.55, abandon share 0.07). V4's "abandon share of booking_started" is ambiguous because `booking_started` is only emitted once the rider taps Book.
+- **Decision:** Commuters check fares 2-3 times per trip (comparing vehicles and surge) and abandon 25 % of flows; default abandon probability 0.24, P01 0.32. V4's third metric is defined as `booking_abandoned / (booking_abandoned + ride_booked)`, target 20-30 %. Wallet top-ups are 500 or more and cover at least three rides.
+- **Consequences:** On `tiny` (seed 42): fare_check → booked 0.36, booked → completed 0.89, abandon share 0.22. Volumes come out above DUMMY_DATA_PLAN §2's estimates (about 900 k rides and 8 M events for `medium` versus 520 k and 6 M), because the commuter rate alone implies about 690 k rides; the estimates in the plan are updated. Calibrate against HireMe aggregates when available (OQ-05). The fraud ring is rounded up to whole devices (4 accounts each) so every ring device is detectable at every scale (V10).
+
+## D-082 Start the dev project on the free tier (Firebase Spark + BigQuery sandbox) at small scale; move to Blaze once the client signs and the service works
+- **Date:** 2026-11-09 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** Project lead (with AI, Claude Opus 5.5)
+- **Context:** M0.2 assumed a Blaze (paid) dev project created by the client (OQ-04), and that blocks loading and everything after it. We do not want to spend money or wait for the client before the service is proven. The free tier has these limits: Firestore on Spark allows about 50 k reads, 20 k writes and 20 k deletes per day and 1 GiB of storage. Without billing, BigQuery runs as a sandbox: 10 GB storage, 1 TB queries per month, tables and partitions expire after 60 days, no DML (`MERGE`/`UPDATE`/`DELETE`), no streaming inserts. Cloud Run, Cloud Scheduler, Secret Manager and new Cloud Storage buckets need billing.
+- **Options considered:** (a) Wait for a client-paid Blaze project (original plan). (b) We pay for Blaze ourselves now. (c) Free tier now with a small scale and local runtime; Blaze when the client signs. (d) No cloud at all (emulators only) until Blaze.
+- **Decision:** (c). We create `hireme-engage-dev` ourselves on Spark, with Firestore and BigQuery in asia-south1 (the location is permanent, so it matches D-051). On the free tier:
+  - **Scale:** only `tiny` (500 riders, 30 days) is loaded into the cloud. `small` and `medium` are generated and checked locally with `sim.validate`. The loaded history must fall inside the last 60 days, so the generator needs a configurable history end (follow-up; today it is fixed at 2026-10-31 and expires from the sandbox around 2026-12-30). Data is reloaded from the seed whenever it expires (D-078).
+  - **Firestore:** real Spark Firestore holds `hireme_riders` (`tiny`), engine config and short smoke runs, kept under about 15 k writes per day. Live simulator runs and tests use the Firestore emulator, which has no quota.
+  - **Runtime:** engine, jobs and mocks run as local Python processes, not Cloud Run. Jobs are started by the virtual clock or a local loop, not Cloud Scheduler. Secrets live in a git-ignored local `.env`, not Secret Manager.
+  - **BigQuery writes:** load jobs only. The simulator and the log shipper write micro-batches (for example every virtual hour) instead of streaming. SQL jobs rebuild tables with `CREATE OR REPLACE TABLE ... AS SELECT` instead of `MERGE`. That DDL and the 60-day expiry are to be confirmed on the real sandbox at M0.2.
+  - **Switch to Blaze:** when the client signs and the engine runs end to end on the free tier, at the latest before `medium` gate evidence and the real pilot. The client creates (or upgrades) the project and pays (OQ-04). The switch is configuration (project id, dataset names per D-059) plus re-running the generator and loaders. No data is migrated.
+- **Consequences:** No cloud cost and no client dependency for M0.2/M0.3. Gate G0 runs on `tiny` in the cloud plus `small` locally; `medium` in BigQuery, Cloud Run deployment (D-051), streaming intraday export and Cloud Scheduler wait for Blaze. Two code paths stay small because they sit behind adapters: BigQuery load-job writer vs streaming, and `CREATE OR REPLACE` vs `MERGE` (the `MERGE` versions are added at the switch). The Firestore emulator needs firebase-tools and Java, which must be installed with the user's approval. D-051 still describes the target hosting for the pilot and production.
+
+## D-083 `demo` scale preset (3,000 riders, 45 days) as the free-tier default for loading, demos and gate evidence
+- **Date:** 2026-11-09 · **Status:** Accepted — client review 2026-11-09 · **Decided by:** Project lead (with AI, Claude Opus 5.5)
+- **Context:** Direction from the project lead: start on the free tier (D-082) and generate only as much dummy data as the free tier holds, while still exercising every MVP playbook (D-036) and showing measurable lift against holdout, which is what justifies the project. `tiny` (500 riders, 30 days) is too small for a lift result; `medium` (20 k riders, 180 days, about 8 M events) does not fit the free tier. A local trial at 5,000 riders × 60 days (seed 42) produced 773 k events and 3.4 GB of NDJSON files (2.9 GB of it GA4 rows).
+- **Options considered:** (a) `tiny` everywhere. (b) `small` (2,000 riders × 180 days): history older than the sandbox's 60-day window is lost. (c) New `demo` preset: 3,000 riders × 45 days of history plus a 60-virtual-day live run on the Firestore emulator. (d) 5,000 riders × 60 days: about 1.7× the data for a modest gain in precision.
+- **Decision:** (c). `demo` = 3,000 riders, 45 days (15 days of margin inside the 60-day sandbox window). The live simulation runs 60 virtual days against the Firestore emulator, so it uses no Spark quota. Scaled from the 5,000-rider trial, expected volumes are about 350 k history events (roughly 0.5 GB in BigQuery, well inside 10 GB; daily jobs well inside 1 TB/month of queries) and 3,000 `hireme_riders` writes, under one day's Spark quota. Expected triggers over the 60-day live run: about 12,000 `booking_abandoned` (about 6,800 B2 candidates after quick rebooks, about 500 in the 10 % holdout, so a 95 % CI of about ±3.5 points, enough to show the spec's B2 lift), about 2,100 no-driver (B5), 630 payment failures (B8), 590 sign-ups (A2/A3), 450 scheduled rides (C2), about 1,000 support tickets plus low ratings (D2), and 180/210/180 lapsing/lapsed/dormant riders (E2/E3/E4), plus 75 discount-trained riders and a 17-rider fraud ring for guardrail tests. Small playbooks (E3, E4, D2) show their effect against the synthetic ground truth (V12), with wide holdout CIs reported honestly.
+- **Consequences:** `demo` replaces `tiny` as the free-tier load in D-082 and replaces `medium` in gate G0 and in Phase 1 demos until the Blaze switch; `tiny` stays for CI and unit tests. Confirmed on 2026-11-09 by the first `demo` generation (seed 42, history 2026-09-25 to 2026-11-08): 338,598 events, 9,092 `booking_abandoned` in 45 days (about 12,100 per 60 days), 594 sign-ups, 1,544 no-driver, 455 payment failures, 101 MB of files; all 13 local checks pass. Trigger counts after caps and holdout are confirmed by the scenario runs (M1). The history end must be set close to the load date (generator follow-up from D-082). Closes OQ-04 and OQ-05.
+
+## D-084 Generator `--history-end` (default 2026-10-31; `yesterday` for free-tier loads)
+- **Date:** 2026-11-09 · **Status:** Accepted · **Decided by:** Project lead (with AI, Claude Opus 5.5)
+- **Context:** The BigQuery sandbox expires data after 60 days (D-082), but the generator always ended history on 2026-10-31 (`sim/calendar.yaml`), so a load made now would start expiring in December.
+- **Options considered:** (a) edit `calendar.yaml` before every load; (b) a CLI option `--history-end YYYY-MM-DD|yesterday`; (c) always end yesterday.
+- **Decision:** (b). Default stays 2026-10-31, so existing seeds still give byte-identical files. `yesterday` resolves to yesterday's IST date; the resolved date is written to `manifest.json` and to `generation_id` (`-eYYYYMMDD`), so any run can be reproduced by passing that date. Free-tier loads use `--scale demo --history-end yesterday`.
+- **Consequences:** The live simulation starts the day after the history end. If the history ends after 2026-11-08, Diwali falls inside history, and the F2 (DIWALI20) live demo needs either the default end date or a campaign date set in config. Calendar events after the default window (none yet) would need adding to `calendar.yaml` for later windows.
+
+## D-085 Local Firebase CLI and Java 21 installed inside `.venv`; Firestore emulator project `demo-hireme-engage-dev`
+- **Date:** 2026-11-09 · **Status:** Accepted · **Decided by:** Project lead (with AI, Claude Opus 5.5)
+- **Context:** Live simulator runs and tests use the Firestore emulator (D-082), which needs the Firebase CLI and Java. The project lead asked for installs inside the virtualenv wherever possible.
+- **Options considered:** (a) global npm install plus a system JDK; (b) everything inside `.venv`; (c) Docker image.
+- **Decision:** (b). `firebase-tools` 15.34.1 is installed with `npm --prefix .venv/node` (it runs on the existing user-level Node 20). A Java 21 runtime (Temurin JRE 21.0.13) is installed into `.venv/jdk` with the `install-jdk` package (1.1.0, in `requirements-dev.txt`). `scripts/firebase.sh` sets `JAVA_HOME` and `PATH` and runs the CLI; `firebase.json` points at `contracts/firestore/` rules and indexes and runs the emulator on 127.0.0.1:8080 with the UI off. The emulator project id is `demo-hireme-engage-dev`: the `demo-` prefix makes the CLI work offline and it can never reach a real project.
+- **Consequences:** Deleting `.venv` removes all of it; the reinstall commands are in README. The CLI still downloads the emulator jar to `~/.cache/firebase/emulators` (outside the repo) on first use. Node itself is not inside `.venv` (it comes from nvm).
+
+## D-086 Backend sends server events to both GA4 (Measurement Protocol) and the engine webhook
+- **Date:** 2026-11-09 · **Status:** Accepted · **Decided by:** Client (answer to OQ-06)
+- **Context:** OQ-06 asked whether server-side events (`ride_booked`, `ride_completed`, ...; D-042) also go to GA4. The client wants all event data kept in GA4's free export.
+- **Options considered:** (a) webhook only (previous default); (b) GA4 only via Measurement Protocol; (c) both.
+- **Decision:** (c). After handoff, the backend sends each server event to the GA4 Measurement Protocol (so it lands in the free BigQuery export with all other events) and to `POST /engage/v1/events` (so real-time playbooks such as B1/B2 do not wait for the export). Both copies carry the same `event_uuid`; the inbox and `Ga4BigQueryPoll` dedupe on it (D-002, D-004).
+- **Consequences:** Feature and mart SQL can read server events straight from the GA4 export instead of joining webhook data (simplifies D-003's fallback). The free daily export arrives the next day; intraday freshness needs streaming export, which needs billing (D-082), so the webhook stays the real-time path. Measurement Protocol for Firebase app streams needs the rider's app instance id, which D-069 made optional for server events: OQ-41. The contract-steward should check that every server event fits Measurement Protocol limits (number and length of params) before the backend handoff.

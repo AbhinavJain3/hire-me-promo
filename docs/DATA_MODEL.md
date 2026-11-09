@@ -421,7 +421,7 @@ CREATE TABLE IF NOT EXISTS `hireme-engage-dev.analytics_999999999.events_${YYYYM
 );
 ```
 
-Mapping rules (D-057): string params → `string_value`; int/bool → `int_value`; double → `double_value`. `event_uuid` and `contract_version` are ordinary params. Server-origin events in the synthetic data use `platform = 'ANDROID'|'IOS'` of the user's device and `origin = 'server'` (in the real world server events are not in GA4 unless the backend uses the Measurement Protocol; see OQ-06).
+Mapping rules (D-057): string params → `string_value`; int/bool → `int_value`; double → `double_value`. `event_uuid` and `contract_version` are ordinary params. Server-origin events in the synthetic data use `platform = 'ANDROID'|'IOS'` of the user's device and `origin = 'server'` (after handoff the backend also sends server events to GA4 via the Measurement Protocol, so they appear in the real export too; D-086, OQ-41).
 
 Canonical extraction view used by every downstream job (works on both synthetic and real export):
 

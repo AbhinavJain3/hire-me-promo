@@ -1,0 +1,62 @@
+# Synthetic geography (docs/DUMMY_DATA_PLAN.md §3, D-037). Loaded into hireme_ref.cities / zones / vehicle_types.
+# Coordinates are approximate public locations, used only to derive trip distances.
+
+cities:
+  - { city_id: 1, city_name: Delhi,   state: Delhi,         country: IN, timezone: Asia/Kolkata, currency: INR, is_pilot: false, rider_share: 0.35, lang_hi_share: 0.30 }
+  - { city_id: 2, city_name: Gurgaon, state: Haryana,       country: IN, timezone: Asia/Kolkata, currency: INR, is_pilot: false, rider_share: 0.15, lang_hi_share: 0.15 }
+  - { city_id: 3, city_name: Noida,   state: Uttar Pradesh, country: IN, timezone: Asia/Kolkata, currency: INR, is_pilot: true,  rider_share: 0.50, lang_hi_share: 0.30 }
+
+# zone_type: residential | business | airport | railway | mall | nightlife | education
+zones:
+  # Noida (city 3, pilot)
+  - { zone_id: NOI-S62,  city_id: 3, zone_name: Sector 62,           zone_type: business,    lat: 28.6280, lng: 77.3649, base_demand_weight: 1.4 }
+  - { zone_id: NOI-S18,  city_id: 3, zone_name: Sector 18,           zone_type: mall,        lat: 28.5708, lng: 77.3260, base_demand_weight: 1.2 }
+  - { zone_id: NOI-S15,  city_id: 3, zone_name: Sector 15,           zone_type: residential, lat: 28.5850, lng: 77.3110, base_demand_weight: 1.0 }
+  - { zone_id: NOI-S137, city_id: 3, zone_name: Sector 137,          zone_type: residential, lat: 28.5096, lng: 77.4093, base_demand_weight: 1.0 }
+  - { zone_id: NOI-S76,  city_id: 3, zone_name: Sector 76,           zone_type: residential, lat: 28.5660, lng: 77.3830, base_demand_weight: 0.9 }
+  - { zone_id: NOI-CC,   city_id: 3, zone_name: Noida City Centre,   zone_type: business,    lat: 28.5745, lng: 77.3560, base_demand_weight: 1.1 }
+  - { zone_id: NOI-S128, city_id: 3, zone_name: Sector 128,          zone_type: residential, lat: 28.5240, lng: 77.3640, base_demand_weight: 0.8 }
+  - { zone_id: NOI-GNW,  city_id: 3, zone_name: Greater Noida West,  zone_type: residential, lat: 28.6040, lng: 77.4290, base_demand_weight: 1.0 }
+  - { zone_id: NOI-BOT,  city_id: 3, zone_name: Botanical Garden,    zone_type: railway,     lat: 28.5640, lng: 77.3340, base_demand_weight: 0.9 }
+  # Delhi (city 1)
+  - { zone_id: DEL-CP,     city_id: 1, zone_name: Connaught Place,           zone_type: business,    lat: 28.6315, lng: 77.2167, base_demand_weight: 1.5 }
+  - { zone_id: DEL-IGI-T3, city_id: 1, zone_name: IGI Airport T3,            zone_type: airport,     lat: 28.5562, lng: 77.0870, base_demand_weight: 1.0 }
+  - { zone_id: DEL-IGI-T1, city_id: 1, zone_name: IGI Airport T1,            zone_type: airport,     lat: 28.5665, lng: 77.1210, base_demand_weight: 0.6 }
+  - { zone_id: DEL-NDLS,   city_id: 1, zone_name: New Delhi Railway Station, zone_type: railway,     lat: 28.6430, lng: 77.2195, base_demand_weight: 0.9 }
+  - { zone_id: DEL-SAKET,  city_id: 1, zone_name: Saket,                     zone_type: mall,        lat: 28.5286, lng: 77.2190, base_demand_weight: 1.1 }
+  - { zone_id: DEL-HKV,    city_id: 1, zone_name: Hauz Khas,                 zone_type: nightlife,   lat: 28.5535, lng: 77.1940, base_demand_weight: 1.0 }
+  - { zone_id: DEL-LAJ,    city_id: 1, zone_name: Lajpat Nagar,              zone_type: mall,        lat: 28.5677, lng: 77.2433, base_demand_weight: 0.9 }
+  - { zone_id: DEL-NP,     city_id: 1, zone_name: Nehru Place,               zone_type: business,    lat: 28.5490, lng: 77.2510, base_demand_weight: 1.1 }
+  - { zone_id: DEL-KB,     city_id: 1, zone_name: Karol Bagh,                zone_type: residential, lat: 28.6519, lng: 77.1909, base_demand_weight: 1.0 }
+  - { zone_id: DEL-DWK,    city_id: 1, zone_name: Dwarka,                    zone_type: residential, lat: 28.5921, lng: 77.0460, base_demand_weight: 1.0 }
+  # Gurgaon (city 2)
+  - { zone_id: GGN-CYBERHUB, city_id: 2, zone_name: Cyber Hub,        zone_type: business,    lat: 28.4950, lng: 77.0890, base_demand_weight: 1.4 }
+  - { zone_id: GGN-GCR,      city_id: 2, zone_name: Golf Course Road, zone_type: residential, lat: 28.4530, lng: 77.0960, base_demand_weight: 1.0 }
+  - { zone_id: GGN-S29,      city_id: 2, zone_name: Sector 29,        zone_type: nightlife,   lat: 28.4690, lng: 77.0630, base_demand_weight: 0.9 }
+  - { zone_id: GGN-MGR,      city_id: 2, zone_name: MG Road,          zone_type: mall,        lat: 28.4800, lng: 77.0800, base_demand_weight: 1.0 }
+  - { zone_id: GGN-UV,       city_id: 2, zone_name: Udyog Vihar,      zone_type: business,    lat: 28.5000, lng: 77.0780, base_demand_weight: 1.1 }
+  - { zone_id: GGN-S56,      city_id: 2, zone_name: Sector 56,        zone_type: residential, lat: 28.4230, lng: 77.1040, base_demand_weight: 0.9 }
+
+# fare = max(base, base + per_km * km + per_min * minutes) * surge   (DUMMY_DATA_PLAN §3)
+vehicle_types:
+  - { vehicle_type: mini,  display_name: Mini,  base_fare_inr: 50,  per_km_inr: 12, per_min_inr: 1.0 }
+  - { vehicle_type: sedan, display_name: Sedan, base_fare_inr: 70,  per_km_inr: 15, per_min_inr: 1.5 }
+  - { vehicle_type: prime, display_name: Prime, base_fare_inr: 90,  per_km_inr: 18, per_min_inr: 2.0 }
+  - { vehicle_type: suv,   display_name: SUV,   base_fare_inr: 120, per_km_inr: 22, per_min_inr: 2.5 }
+
+trip:
+  road_factor: 1.3              # road km = straight-line km * road_factor
+  intra_zone_km: [2.0, 6.0]     # trips inside one zone
+  min_per_km_offpeak: 2.6
+  min_per_km_peak: 3.2
+  # Surge is a property of (pickup zone, IST date, hour), identical for every rider (hash of the seed).
+  surge:
+    peak_hours_weekday: [[8.0, 10.5], [18.0, 21.0]]
+    peak_zone_types: [business, airport, railway]
+    peak_probability: 0.55
+    peak_range: [1.2, 1.8]
+    rain_probability: 0.6
+    rain_range: [1.2, 1.6]
+    festival_evening_hours: [18, 23]
+    festival_probability: 0.5
+    festival_range: [1.2, 1.5]

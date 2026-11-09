@@ -1,5 +1,6 @@
 -r requirements.txt
 pytest==9.2.0
+install-jdk==1.1.0          # installs Java 21 into .venv/jdk for the Firestore emulator (D-085)
 # document tooling used while planning
 pypdf
 pymupdf

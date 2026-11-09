@@ -16,3 +16,6 @@ data/gen/
 # Client material: kept locally, not published (repo is public)
 docs/reference/
 docs/client/
+
+# Firebase emulator logs
+*-debug.log

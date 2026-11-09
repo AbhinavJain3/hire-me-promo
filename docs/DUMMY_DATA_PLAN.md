@@ -28,9 +28,9 @@ The synthetic data must let us run **every v1 use case end to end** with no Hire
 
 | Data | Destination | Loader | Volume (medium scale) |
 |---|---|---|---|
-| Reference (cities, zones, vehicles, calendar) | BigQuery `hireme_ref.*` | BigQuery load job from CSV | ~60 rows |
-| 180 days of raw events, GA4 shape | BigQuery `analytics_999999999.events_YYYYMMDD` (one shard per IST day) | BigQuery load jobs from NDJSON (one file per day) | ≈ 6 M events, ≈ 8 GB |
-| Backend stand-ins (rides, riders snapshot, redemptions) | BigQuery `hireme_backend_stub.*` | Load jobs | ≈ 520 k rides |
+| Reference (cities, zones, vehicles, calendar) | BigQuery `hireme_ref.*` | BigQuery load job from NDJSON (D-078) | ~60 rows |
+| 180 days of raw events, GA4 shape | BigQuery `analytics_999999999.events_YYYYMMDD` (one shard per IST day) | BigQuery load jobs from NDJSON (one file per day) | ≈ 8 M events, ≈ 10 GB (D-081; was estimated at 6 M) |
+| Backend stand-ins (rides, riders snapshot, redemptions) | BigQuery `hireme_backend_stub.*` | Load jobs | ≈ 900 k rides (D-081) |
 | Rider DB stand-in (contact, consent, tokens, wallet) | Firestore `hireme_riders` | Firestore Admin SDK `BulkWriter` | 20,000 docs |
 | Engine config: settings, 12 playbooks, ~40 templates, budgets, segments | Firestore `engage_*` | **Firebase MCP server** (via Claude Code skill `seed-firestore`), with Admin SDK script as fallback | ~70 docs |
 | Ground truth (personas, latent traits, true effects) | BigQuery `engage_sim.*` | Load jobs | 20,000 + ~200 rows |
@@ -149,16 +149,17 @@ Scale presets (`--scale`):
 | Preset | Riders | History days | Events (approx.) | Use |
 |---|---|---|---|---|
 | `tiny` | 500 | 30 | 25 k | Unit/scenario tests, CI, Firestore emulator |
+| `demo` | 3,000 | 45 | ≈ 350 k | Free-tier default: cloud load, demos, gate evidence (D-083) |
 | `small` | 2,000 | 180 | 600 k | Developer laptops |
 | `medium` | 20,000 | 180 | 6 M | Demos, gate evidence, model training |
 | `large` | 100,000 | 180 | 30 M | Load test (Phase 3) |
 
-Cost guard: medium history ≈ 8 GB in BigQuery; daily feature jobs scan only the last 90 days of partitions (≈ 4 GB/day, ≈ 120 GB/month, inside the 1 TB free query tier). The dev Firebase project must be on the Blaze plan because Spark limits (20 k Firestore writes/day) are far below the bulk load (OQ-04).
+Cost guard: medium history ≈ 8 GB in BigQuery; daily feature jobs scan only the last 90 days of partitions (≈ 4 GB/day, ≈ 120 GB/month, inside the 1 TB free query tier). Until the client signs, the dev project runs on the free tier (D-082): only `demo` (3,000 riders, 45 days, D-083) is loaded into the cloud, because Spark allows about 20 k Firestore writes/day and the BigQuery sandbox drops partitions older than 60 days; live runs use the Firestore emulator; `small` and `medium` are checked locally. `medium` is loaded once the project moves to Blaze (OQ-04).
 
 ## 7. Generator design (`sim/generator`)
 
 1. **Config**: `sim/personas.yaml` (shares, latent distributions, response model), `sim/geo.yaml` (cities, zones, fare rates), `sim/calendar.yaml`; `--seed` makes runs reproducible.
-2. **Population**: create riders (ids `u_10000`…), assign persona, latent traits, home/work zones, device hash (fraud ring shares), payment fingerprints, consent, tokens, language; first names from a curated list of common Indian first names (no real people), phones in a reserved synthetic range (`+91999001xxxx`), emails `@example.test` (RFC 2606 reserved domain, can never be delivered).
+2. **Population**: create riders (ids `u_10000`…), assign persona, latent traits, home/work zones, device hash (fraud ring shares), payment fingerprints, consent, tokens, language; first names from a curated list of common Indian first names (no real people), phones in a reserved synthetic range (`+919990` + 6 digits from `010000`, which starts with the original `+91999001xxxx`; D-079), emails `@example.test` (RFC 2606 reserved domain, can never be delivered).
 3. **Organic process** (day by day, per rider): a non-homogeneous Poisson process for "trip intents" from `ride_rate`, weekday/hour patterns, calendar multipliers. Each intent produces a session: `app_open` → 1+ `fare_check` (count from `fare_check_propensity`, more under surge) → maybe `vehicle_selected` → `booking_started` → either `booking_abandoned` (step drawn) or `ride_booked` → (`no_driver_found` with zone/hour supply probability → retry or give up) → `ride_started` → `ride_completed` (or `ride_cancelled`) → `ride_rated` (55 %) and occasionally `support_ticket_opened`; `payment_failed` (2 % card/UPI) → retry. Scheduled rides for P04. `wallet_topup`, `referral_shared`, `profile_completed`, `location_permission` at plausible rates. Riders lapse according to `churn_hazard`; organic returns occur with persona-specific probability.
 4. **Historical engine absence**: in history, no engine messages exist (the engine did not exist), except an optional `--prepilot-experiment` flag that simulates a randomised manual campaign in Sept-Oct (B2 and E2 with random rungs and a 20 % holdout) to bootstrap Phase 2 model training. Default: off; Phase 2 trains on logs produced by Phase 1 simulated runs (realistic, D-019).
 5. **Emit**: each event as a canonical envelope → converted to the GA4 row (`ga4_mapping.py`, shared with the engine's `Ga4BigQueryPoll`, so a round-trip test proves both directions) → NDJSON per IST day. Backend stubs (`rides`, `riders_snapshot`) written from the same state.
@@ -172,7 +173,7 @@ GA4 fidelity details: `event_date` in Asia/Kolkata; `event_timestamp` microsecon
 |---|---|---|---|
 | 1 Create datasets/tables | `bq`-equivalent via Python client, DDL from `contracts/bigquery` | `python -m sim.loaders.bq_ddl --project hireme-engage-dev` | BigQuery MCP: list tables |
 | 2 Load reference | BigQuery load job | `python -m sim.loaders.bq_load --what ref` | row counts |
-| 3 Generate history | generator | `python -m sim.generator --scale medium --seed 42 --out data/gen/2026-11-02/` | file counts, size |
+| 3 Generate history | generator | `python -m sim.generator --scale medium --seed 42` (writes `data/gen/medium_s42/`; built, D-078) then `python -m sim.validate data/gen/medium_s42` | file counts, size |
 | 4 Load events | BigQuery load jobs (NDJSON → `events_YYYYMMDD`) | `python -m sim.loaders.bq_load --what events --dir …` | `sql/checks/*.sql` (section 10) |
 | 5 Load stubs and truth | load jobs | `--what stubs,truth` | counts |
 | 6 Load rider stub | Admin SDK `BulkWriter` | `python -m sim.loaders.fs_riders` | Firebase MCP: `firestore_query_collection hireme_riders limit 5`; count |
@@ -225,7 +226,7 @@ Scripted scenarios (each has an automated assertion in `tests/scenario/`):
 | V1 | Every event has `event_uuid`, `contract_version`, required params per event schema | 100 % (sample 1 % for JSON Schema; SQL null checks on all) |
 | V2 | `event_uuid` unique per table | 0 duplicates |
 | V3 | GA4 round trip: envelope → GA4 row → envelope | byte-identical params on 10 k sample |
-| V4 | Funnel ratios | fare_check → booked 30-45 %; booked → completed 85-92 %; abandon share of booking_started 20-30 % |
+| V4 | Funnel ratios | fare_check → booked 30-45 %; booked → completed 85-92 %; abandon share of booking flows, `booking_abandoned / (booking_abandoned + ride_booked)`, 20-30 % (D-081) |
 | V5 | Persona sanity | commuters' weekday share > 0.8; weekend riders' Fri-Sun share > 0.7; dormant riders have no rides in the last 90 days |
 | V6 | Recency bands at history end | lapsing/lapsed/dormant counts within ±5 % of target |
 | V7 | Fares | ₹ distribution by vehicle/distance within configured bounds; Sector 62 → CP mini median ₹330-₹430 |
