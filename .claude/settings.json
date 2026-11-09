@@ -1,0 +1,53 @@
+{
+  "enabledMcpjsonServers": ["firebase", "bigquery"],
+  "permissions": {
+    "allow": [
+      "Read", "Grep", "Glob",
+      "mcp__firebase__firebase_get_project",
+      "mcp__firebase__firebase_get_environment",
+      "mcp__firebase__firebase_get_security_rules",
+      "mcp__firebase__firebase_validate_security_rules",
+      "mcp__firebase__firestore_get_database",
+      "mcp__firebase__firestore_list_indexes",
+      "mcp__firebase__firestore_list_collections",
+      "mcp__firebase__firestore_list_documents",
+      "mcp__firebase__firestore_get_document",
+      "mcp__firebase__firestore_query_collection",
+      "mcp__bigquery__list_dataset_ids",
+      "mcp__bigquery__get_dataset_info",
+      "mcp__bigquery__list_table_ids",
+      "mcp__bigquery__get_table_info",
+      "mcp__bigquery__get_job",
+      "mcp__bigquery__get_query_results",
+      "Bash(.venv/bin/python -m pytest:*)",
+      "Bash(.venv/bin/python -m sim.validate:*)",
+      "Bash(.venv/bin/python -m engage.tools.validate_contract:*)",
+      "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)"
+    ],
+    "ask": [
+      "Edit", "Write",
+      "mcp__firebase__firestore_add_document",
+      "mcp__firebase__firestore_update_document",
+      "mcp__bigquery__execute_sql_readonly",
+      "mcp__bigquery__execute_sql",
+      "mcp__bigquery__cancel_job",
+      "Bash(.venv/bin/python -m sim.generator:*)",
+      "Bash(.venv/bin/python -m sim.loaders:*)",
+      "Bash(.venv/bin/python -m sim.replayer:*)",
+      "Bash(.venv/bin/python -m engage.jobs:*)",
+      "Bash(.venv/bin/firebase deploy:*)",
+      "Bash(pip install:*)", "Bash(.venv/bin/pip install:*)", "Bash(npm install:*)"
+    ],
+    "deny": [
+      "mcp__firebase__firestore_delete_document",
+      "mcp__firebase__firestore_delete_database",
+      "mcp__firebase__messaging_send_message",
+      "mcp__firebase__auth_update_user",
+      "Bash(gcloud projects delete:*)", "Bash(.venv/bin/gcloud projects delete:*)",
+      "Bash(bq rm:*)", "Bash(.venv/bin/bq rm:*)",
+      "Bash(firebase firestore:delete:*)", "Bash(.venv/bin/firebase firestore:delete:*)",
+      "Bash(*hireme-engage-prod*)",
+      "Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)"
+    ]
+  }
+}

@@ -29,6 +29,8 @@ Calendar risk: W7-W9 include Christmas and New Year; Phase 1 exit and HB2 avoid 
 
 **Progress (2026-11-09):** M0.3 started. The generator (`sim/generator`) and file-based checks (`sim/validate`, V1-V10, V13, V14) work locally without the cloud project; `tiny` passes all local checks, output is reproducible from the seed (D-078 to D-081). Still open in M0.3: BigQuery and Firestore loaders and `sql/checks`. M0.2 no longer waits for the client: we start on the free tier at `demo` scale (D-083) and move to Blaze at client signing (D-082, OQ-04).
 
+**Progress (2026-11-09, M0.2):** project `hireme-engage-dev` created on Spark; Firestore `(default)` in asia-south1 with the contract rules and indexes (TTL left out on the free tier, D-087); Firebase MCP server configured and answering (D-088); Firestore emulator ready (D-085). Later the same day (D-089): Google Cloud CLI and credentials set up, BigQuery datasets and tables created, BigQuery MCP configured, `.claude/settings.json` created, loaders built and the `demo` generation loaded (BigQuery and Firestore). Open for M0.2: CI. Open for M0.3: `sql/checks` in BigQuery and the load runbook.
+
 | ID | Milestone | Tasks | Acceptance criteria | Owner |
 |---|---|---|---|---|
 | M0.1 | **Data contract v1.0-rc** | JSON Schemas for envelope and all 27 events (`contracts/events/v1`); GA4 mapping spec; user properties; playbook schema; OpenAPI drafts (admin, ingest, rider, promo); review with HireMe app/backend leads | Schemas validate all examples in DATA_MODEL; client review meeting held; open contract questions logged (OQ-07, OQ-11, OQ-12) | Architect + contract-steward agent |

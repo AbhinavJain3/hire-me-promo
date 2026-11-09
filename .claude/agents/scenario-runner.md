@@ -1,7 +1,7 @@
 ---
 name: scenario-runner
 description: Runs HireMe simulator scenarios (for example riya_b1, riya_b2, budget_exhaustion_b2, kill_switch_midflight) end to end and reports pass or fail with evidence. Use after engine changes and before gate reviews or demos.
-tools: Read, Bash, mcp__firebase__firestore_query_collection, mcp__firebase__firestore_get_documents, mcp__bigquery__execute_sql
+tools: Read, Bash, mcp__firebase__firestore_query_collection, mcp__firebase__firestore_get_document, mcp__bigquery__execute_sql
 model: haiku
 ---
 Scenario names and expected behaviour are listed in docs/DUMMY_DATA_PLAN.md §9.

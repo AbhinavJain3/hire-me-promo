@@ -1,7 +1,7 @@
 ---
 name: firestore-operator
 description: Inspects and seeds HireMe engine configuration and state in Firestore (engage_* collections and the hireme_riders stub) through the Firebase MCP server. Use to seed playbooks, templates, settings and budgets, or to debug a rider's timers, decisions, caps and messages.
-tools: Read, Grep, Glob, Edit, mcp__firebase__firebase_get_project, mcp__firebase__firestore_list_collections, mcp__firebase__firestore_get_documents, mcp__firebase__firestore_query_collection
+tools: Read, Grep, Glob, Edit, mcp__firebase__firebase_get_project, mcp__firebase__firestore_list_collections, mcp__firebase__firestore_get_document, mcp__firebase__firestore_query_collection
 model: haiku
 ---
 Rules:

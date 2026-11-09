@@ -1,0 +1,6 @@
+{
+  "firestore": {
+    "rules": "contracts/firestore/firestore.rules",
+    "indexes": "build/firestore.indexes.free-tier.json"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "firebase": {
+      "command": ".venv/bin/firebase",
+      "args": [
+        "mcp",
+        "--dir",
+        ".",
+        "--tools",
+        "firebase_get_project,firebase_get_environment,firebase_get_security_rules,firebase_validate_security_rules,firestore_get_database,firestore_list_indexes,firestore_list_collections,firestore_list_documents,firestore_get_document,firestore_query_collection,firestore_add_document,firestore_update_document"
+      ]
+    },
+    "bigquery": {
+      "type": "http",
+      "url": "https://bigquery.googleapis.com/mcp",
+      "headersHelper": "scripts/bq_mcp_headers.sh"
+    }
+  }
+}

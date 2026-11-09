@@ -47,7 +47,9 @@ Draft `.mcp.json`:
 }
 ```
 
-Authentication uses the developer's Application Default Credentials (`gcloud auth application-default login`) scoped to the dev project; never a production service account key. Tool names below follow the current published tool sets (`firestore_get_documents`, `firestore_list_collections`, `firestore_query_collection`, `firestore_delete_document`, …; BigQuery `list_dataset_ids`, `list_table_ids`, `get_table_info`, `execute_sql`). At M0.2 we run `/mcp`, record the actual tool list in `docs/reference/mcp_tools.md`, and adjust permissions and agent `tools:` lists.
+Authentication uses the developer's Application Default Credentials (`gcloud auth application-default login`) scoped to the dev project; never a production service account key. Tool names below follow the current published tool sets (`firestore_get_document`, `firestore_list_collections`, `firestore_query_collection`, `firestore_delete_document`, …; BigQuery `list_dataset_ids`, `list_table_ids`, `get_table_info`, `execute_sql`). At M0.2 we run `/mcp`, record the actual tool list in `docs/reference/mcp_tools.md`, and adjust permissions and agent `tools:` lists.
+
+**Verified at M0.2 (2026-11-09, D-088).** Firebase: the MCP server built into `firebase-tools` 15.34.1 (`firebase mcp`, server `firebase` 0.3.0), started from `.mcp.json` with `.venv/bin/firebase`. It offers 41 tools for `core,firestore`; `.mcp.json` exposes only these 12 with `--tools`: `firebase_get_project`, `firebase_get_environment`, `firebase_get_security_rules`, `firebase_validate_security_rules`, `firestore_get_database`, `firestore_list_indexes`, `firestore_list_collections`, `firestore_list_documents`, `firestore_get_document` (singular; the planned `firestore_get_documents` does not exist), `firestore_query_collection`, `firestore_add_document`, `firestore_update_document`. Deletes, deploys, index changes, backups and project or database creation are not exposed. It acts as the account logged in to the Firebase CLI on the project in `.firebaserc`. The Firestore tools mirror the REST API and need full resource names, for example `parent: projects/hireme-engage-dev/databases/(default)/documents` for `firestore_list_collections` and `.../databases/(default)/collectionGroups/-` for `firestore_list_indexes`. BigQuery (D-089): Google's managed remote server `https://bigquery.googleapis.com/mcp`, configured in `.mcp.json` as an `http` server whose `headersHelper` (`scripts/bq_mcp_headers.sh`) prints a fresh access token from the project-local gcloud (`hireme-engage-dev` configuration). Tools: `list_dataset_ids`, `get_dataset_info`, `list_table_ids`, `get_table_info`, `execute_sql_readonly`, `execute_sql`, `get_query_results`, `cancel_job`, `get_job`. `.claude/settings.json` now exists with the rules below, using these verified names; one change from this draft: package installs are on *ask* instead of *deny*, because the project lead approves installs into `.venv` (D-085).
 
 ### 1.2 Permissions (`.claude/settings.json`, draft)
 
@@ -60,7 +62,7 @@ Principles: reads are free, writes ask, destructive operations and production ar
       "Read", "Grep", "Glob",
       "mcp__firebase__firebase_get_project",
       "mcp__firebase__firestore_list_collections",
-      "mcp__firebase__firestore_get_documents",
+      "mcp__firebase__firestore_get_document",
       "mcp__firebase__firestore_query_collection",
       "mcp__bigquery__list_dataset_ids",
       "mcp__bigquery__list_table_ids",
@@ -145,7 +147,7 @@ Output: list of changed files, version bump, compatibility impact for backend, d
 ---
 name: synthetic-data-engineer
 description: Builds and runs the synthetic data generator, loaders and simulator for HireMe (personas, GA4-shaped events, Firestore rider stub, ground truth). Use for any task in sim/ or about dummy data volumes, realism or loading.
-tools: Read, Grep, Glob, Edit, Write, Bash, mcp__firebase__firestore_list_collections, mcp__firebase__firestore_query_collection, mcp__firebase__firestore_get_documents, mcp__bigquery__list_table_ids, mcp__bigquery__get_table_info, mcp__bigquery__execute_sql
+tools: Read, Grep, Glob, Edit, Write, Bash, mcp__firebase__firestore_list_collections, mcp__firebase__firestore_query_collection, mcp__firebase__firestore_get_document, mcp__bigquery__list_table_ids, mcp__bigquery__get_table_info, mcp__bigquery__execute_sql
 model: sonnet
 ---
 Follow docs/DUMMY_DATA_PLAN.md exactly (personas, shares, response model, geography, time range).
@@ -182,7 +184,7 @@ Output: the SQL, bytes scanned, results table, caveats.
 ---
 name: firestore-operator
 description: Inspects and seeds HireMe engine configuration and state in Firestore (engage_* collections, hireme_riders stub) through the Firebase MCP server. Use to seed playbooks/templates/settings or to debug a user's timers, decisions and caps.
-tools: Read, Grep, Glob, Edit, mcp__firebase__firebase_get_project, mcp__firebase__firestore_list_collections, mcp__firebase__firestore_get_documents, mcp__firebase__firestore_query_collection
+tools: Read, Grep, Glob, Edit, mcp__firebase__firebase_get_project, mcp__firebase__firestore_list_collections, mcp__firebase__firestore_get_document, mcp__firebase__firestore_query_collection
 model: haiku
 ---
 - Confirm the active project is hireme-engage-dev before anything else; stop otherwise.
@@ -237,7 +239,7 @@ Run the related unit, property and scenario tests. Report each invariant as PASS
 ---
 name: scenario-runner
 description: Runs HireMe simulator scenarios (riya_b1, riya_b2, budget_exhaustion_b2, kill_switch_midflight, ...) and reports pass/fail with evidence. Use after engine changes and before gate reviews.
-tools: Read, Bash, mcp__firebase__firestore_query_collection, mcp__firebase__firestore_get_documents, mcp__bigquery__execute_sql
+tools: Read, Bash, mcp__firebase__firestore_query_collection, mcp__firebase__firestore_get_document, mcp__bigquery__execute_sql
 model: haiku
 ---
 Run scenarios with .venv/bin/python -m sim.replayer --mode scenario --name <name> --speed 120 (dev project only), then the matching tests in tests/scenario.
@@ -377,7 +379,7 @@ description: Seed or refresh HireMe engine configuration documents (engage_setti
 1. Verify the Firebase project is hireme-engage-dev.
 2. Validate playbooks/*.json against contracts/playbook.schema.json and templates/*.yaml against the template schema.
 3. Write each document with the Firebase MCP write tool if available; otherwise run .venv/bin/python -m sim.loaders.fs_config.
-4. Read every document back with firestore_get_documents and diff against the source files.
+4. Read every document back with firestore_get_document and diff against the source files.
 Report: documents written, diffs (should be none), validation errors.
 ```
 

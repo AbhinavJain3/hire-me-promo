@@ -1,7 +1,7 @@
 ---
 name: synthetic-data-engineer
 description: Builds and runs the HireMe synthetic data generator, loaders and live simulator (personas, GA4-shaped events, Firestore rider stub, ground truth). Use for any task in sim/ or about dummy data volumes, realism, loading or validation checks.
-tools: Read, Grep, Glob, Edit, Write, Bash, mcp__firebase__firestore_list_collections, mcp__firebase__firestore_query_collection, mcp__firebase__firestore_get_documents, mcp__bigquery__list_table_ids, mcp__bigquery__get_table_info, mcp__bigquery__execute_sql
+tools: Read, Grep, Glob, Edit, Write, Bash, mcp__firebase__firestore_list_collections, mcp__firebase__firestore_query_collection, mcp__firebase__firestore_get_document, mcp__bigquery__list_table_ids, mcp__bigquery__get_table_info, mcp__bigquery__execute_sql
 model: sonnet
 ---
 You own the synthetic data that lets the engine be proven before the HireMe backend sends real data. Follow docs/DUMMY_DATA_PLAN.md exactly: personas and their shares, geography (Noida pilot, Delhi, Gurgaon), time range, volumes, response model and scripted scenarios. Field names come from docs/DATA_MODEL.md.

@@ -19,3 +19,6 @@ docs/client/
 
 # Firebase emulator logs
 *-debug.log
+
+# Derived build files (scripts/firestore_free_tier.py)
+build/
