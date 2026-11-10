@@ -221,6 +221,8 @@ Scripted scenarios (each has an automated assertion in `tests/scenario/`):
 
 ## 10. Validation checks (`sql/checks/`, run after every load and nightly)
 
+Run with `.venv/bin/python -m sim.validate.bq --project hireme-engage-dev` (D-090); files and output shape in `sql/checks/README.md`; full procedure in [LOAD_RUNBOOK.md](LOAD_RUNBOOK.md).
+
 | # | Check | Pass criterion |
 |---|---|---|
 | V1 | Every event has `event_uuid`, `contract_version`, required params per event schema | 100 % (sample 1 % for JSON Schema; SQL null checks on all) |

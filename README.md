@@ -36,6 +36,8 @@ The engine reads rider behaviour (Firebase Analytics events and user properties)
 9. **[docs/DUMMY_DATA_PLAN.md](docs/DUMMY_DATA_PLAN.md):** how uplift will be proven before real riders are involved.
 10. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §6-§11 and [docs/AGENTS_AND_SKILLS.md](docs/AGENTS_AND_SKILLS.md):** detail for engineers.
 
+Loading and checking the dev project: [docs/LOAD_RUNBOOK.md](docs/LOAD_RUNBOOK.md).
+
 ## Local tooling (D-085)
 
 Everything is installed inside `.venv` (Node 20 comes from nvm):
