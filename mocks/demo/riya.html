@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riya's Abandoned Booking</title>
+<style>
+:root {
+  --bg: #f4f5f7; --panel: #ffffff; --ink: #1d2330; --muted: #6b7280; --line: #e3e6eb;
+  --accent: #0f766e; --accent-soft: #e6f4f2; --live: #1d4ed8; --live-soft: #e8efff;
+  --script: #7c3aed; --script-soft: #f1eafe; --event: #b45309; --event-soft: #fdf2e3;
+  --ok: #15803d; --bad: #b91c1c; --bad-soft: #fdecec; --phone: #11151c;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font); }
+button { font: inherit; cursor: pointer; }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 12px 16px; }
+@media (min-width: 1001px) and (min-height: 700px) {
+  .wrap { height: 100vh; display: flex; flex-direction: column; }
+  .main { flex: 1; min-height: 0; }
+  .main > section { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+  .phone { flex: 1; min-height: 0; height: auto; max-height: 720px; width: auto; aspect-ratio: 1 / 2; }
+  .steps { flex: 1; min-height: 0; overflow-y: auto; }
+  .note { flex: none; }
+}
+
+/* header */
+header { flex: none; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+header h1 { font-size: 20px; margin: 0; }
+header p { margin: 2px 0 0; color: var(--muted); }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 8px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.toggle { display: flex; gap: 6px; align-items: center; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.clock { font: 600 13px var(--mono); padding: 7px 10px; border-radius: 8px; background: var(--ink); color: #fff; }
+
+/* API strip */
+.strip { flex: none; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+.strip h2, .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+.nodes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 10px; }
+.node { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; text-align: center; transition: background .3s, border-color .3s, transform .3s; }
+.node b { display: block; font-size: 13px; }
+.node span { font-size: 11px; color: var(--muted); }
+.node.flash { background: var(--live-soft); border-color: var(--live); transform: translateY(-2px); }
+.node.flash-event { background: var(--event-soft); border-color: var(--event); transform: translateY(-2px); }
+.log { font: 12px/1.5 var(--mono); max-height: 112px; overflow-y: auto; border-top: 1px solid var(--line); }
+.log div { display: grid; grid-template-columns: 70px 250px 1fr 60px 60px; gap: 8px; padding: 4px 2px; border-bottom: 1px solid var(--line); align-items: center; }
+.log .new { animation: fadein .8s; }
+@keyframes fadein { from { background: var(--live-soft); } to { background: transparent; } }
+.log .who { font-family: var(--font); font-weight: 600; }
+.log .path { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-ok { color: var(--ok); font-weight: 600; } .st-bad { color: var(--bad); font-weight: 600; }
+.tag { display: inline-block; font: 600 10px var(--font); text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; }
+.tag.live { background: var(--live-soft); color: var(--live); }
+.tag.script { background: var(--script-soft); color: var(--script); }
+.tag.event { background: var(--event-soft); color: var(--event); }
+.log .empty { display: block; color: var(--muted); font-family: var(--font); padding: 8px 2px; }
+
+/* main */
+.main { display: grid; grid-template-columns: 400px 1fr; gap: 16px; align-items: start; }
+.side-title { font-weight: 700; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: baseline; }
+.side-title small { color: var(--muted); font-weight: 400; }
+.hint { background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-weight: 600; min-height: 38px; }
+
+/* phone */
+.phone { width: 360px; height: 720px; margin: 0 auto; border-radius: 44px; background: var(--phone); padding: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.18); }
+.screen { position: relative; width: 100%; height: 100%; border-radius: 32px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+.statusbar { display: flex; justify-content: space-between; padding: 10px 22px 6px; font: 600 13px var(--font); }
+.view { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+.map { height: 30%; min-height: 120px; flex: none; position: relative; background: linear-gradient(135deg, #dfe9e2, #e9eef6); }
+.map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sheet { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.route { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+.route div { display: flex; gap: 8px; align-items: center; padding: 3px 0; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); flex: none; }
+.dot.drop { background: var(--bad); border-radius: 2px; }
+.vehicles { display: grid; gap: 6px; }
+.veh { display: flex; justify-content: space-between; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.veh.sel { border-color: var(--accent); background: var(--accent-soft); }
+.veh small { color: var(--muted); display: block; }
+.cta { background: var(--accent); color: #fff; border: 0; border-radius: 12px; padding: 13px; font-weight: 700; width: 100%; }
+.cta:disabled { opacity: .45; cursor: default; }
+.link { background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 4px; }
+.pulse { animation: pulse 1.6s infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(15,118,110,.45); } 50% { box-shadow: 0 0 0 7px rgba(15,118,110,0); } }
+.lock { flex: 1; background: linear-gradient(160deg, #23324a, #3f5a7a 60%, #7b93ad); color: #fff; padding: 30px 16px; display: flex; flex-direction: column; align-items: center; }
+.lock .time { font-size: 64px; font-weight: 300; line-height: 1; margin-top: 30px; }
+.lock .date { opacity: .85; margin-bottom: 30px; }
+.notif { width: 100%; background: rgba(255,255,255,.93); color: var(--ink); border-radius: 16px; padding: 10px 12px; text-align: left; border: 0; animation: drop .5s; }
+.notif .app { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.notif b { display: block; margin: 2px 0; }
+@keyframes drop { from { transform: translateY(-30px); opacity: 0; } to { transform: none; opacity: 1; } }
+.promo-row { display: flex; gap: 6px; }
+.promo-row input { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; font: 600 14px var(--mono); text-transform: uppercase; }
+.promo-row button { border: 1px solid var(--accent); color: var(--accent); background: #fff; border-radius: 10px; padding: 0 14px; font-weight: 700; }
+.msg { border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+.msg.ok { background: var(--accent-soft); color: var(--accent); }
+.msg.err { background: var(--bad-soft); color: var(--bad); }
+.bill div { display: flex; justify-content: space-between; padding: 2px 0; }
+.bill .save { color: var(--ok); }
+.bill .total { font-weight: 700; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 6px; }
+.center { text-align: center; }
+.big { font-size: 26px; font-weight: 700; }
+
+/* engine */
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin: 6px 0 2px; display: flex; }
+.bar i { display: block; height: 100%; transition: width .6s; }
+.steps { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 0; }
+.step { display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 7px 14px; opacity: .45; transition: opacity .3s, background .3s; }
+.step.active { opacity: 1; background: var(--accent-soft); }
+.step.done { opacity: 1; }
+.step.fail { opacity: 1; background: var(--bad-soft); }
+.step .n { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; font-size: 12px; font-weight: 700; background: #fff; }
+.step.done .n { background: var(--ok); border-color: var(--ok); color: #fff; }
+.step.active .n { background: var(--accent); border-color: var(--accent); color: #fff; }
+.step.fail .n { background: var(--bad); border-color: var(--bad); color: #fff; }
+.step .t { font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.step .d { color: var(--muted); font-size: 13px; }
+.step .d code { font: 12px var(--mono); background: var(--bg); padding: 0 4px; border-radius: 4px; color: var(--ink); }
+.note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+@media (max-width: 1000px) {
+  .main { grid-template-columns: 1fr; }
+  .nodes { grid-template-columns: repeat(2, 1fr); }
+  .cards { grid-template-columns: 1fr; }
+  .log div { grid-template-columns: 60px 1fr 50px; }
+  .log .path, .log .ms { display: none; }
+}
+@media (max-width: 400px) { .phone { width: 100%; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Riya's abandoned booking — playbook B2</h1>
+      <p>Left: what Riya sees on her phone. Right: what the engagement engine does. Top: the API calls between the services.</p>
+    </div>
+    <div class="controls">
+      <span class="clock" id="clock" title="Simulated time (IST)">--:--</span>
+      <label class="toggle" title="The Promo API fails for a few seconds; the engine retries with the same Idempotency-Key"><input type="checkbox" id="hiccup"> Promo API outage</label>
+      <button class="btn primary" id="restart">Restart story</button>
+      <a class="btn" href="/demo/data" style="color:inherit;text-decoration:none">The data →</a>
+    </div>
+  </header>
+
+  <section class="strip">
+    <h2>API activity <span class="tag live">live API</span> real calls to the mock services &nbsp; <span class="tag event">event</span> app analytics events (simulated)</h2>
+    <div class="nodes">
+      <div class="node" id="node-app"><b>Riya's app</b><span>HireMe app and backend</span></div>
+      <div class="node" id="node-analytics"><b>Firebase Analytics</b><span>events → BigQuery</span></div>
+      <div class="node" id="node-engine"><b>Engagement engine</b><span>triggers, decisions, guardrails</span></div>
+      <div class="node" id="node-promo"><b>Promo API</b><span>mock of HireMe's API</span></div>
+      <div class="node" id="node-fcm"><b>FCM push</b><span>mock of Firebase Cloud Messaging</span></div>
+    </div>
+    <div class="log" id="log"><span class="empty">No calls yet. Start on Riya's phone.</span></div>
+  </section>
+
+  <div class="main">
+    <section>
+      <div class="side-title">Riya's phone <small>u_88213 · Noida · synthetic rider</small></div>
+      <div class="hint" id="hint"></div>
+      <div class="phone"><div class="screen">
+        <div class="statusbar"><span id="phone-time">--:--</span><span>5G ▮▮▮ 82%</span></div>
+        <div class="view" id="view"></div>
+      </div></div>
+    </section>
+
+    <section>
+      <div class="side-title">Engagement engine <small>what happens behind the scenes</small></div>
+      <div class="cards">
+        <div class="card">
+          <h2>Decision</h2>
+          <dl class="kv" id="decision">
+            <dt>Playbook</dt><dd>B2_abandoned_booking</dd>
+            <dt>Group</dt><dd id="d-group">—</dd>
+            <dt>Offer</dt><dd id="d-offer">—</dd>
+            <dt>Channel</dt><dd id="d-channel">—</dd>
+            <dt>Promo code</dt><dd id="d-code">—</dd>
+            <dt>Message</dt><dd id="d-status">—</dd>
+          </dl>
+        </div>
+        <div class="card">
+          <h2>B2 budget today (Noida)</h2>
+          <dl class="kv">
+            <dt>Daily budget</dt><dd>₹5,000.00</dd>
+            <dt>Reserved for Riya</dt><dd id="b-reserved">₹0.00</dd>
+            <dt>Redeemed (actual cost)</dt><dd id="b-redeemed">₹0.00</dd>
+            <dt>Released back</dt><dd id="b-released">₹0.00</dd>
+          </dl>
+          <div class="bar"><i id="bar-redeemed" style="width:0;background:var(--ok)"></i><i id="bar-reserved" style="width:0;background:var(--accent)"></i></div>
+          <div class="note">The bar is scaled to Riya's ₹75 cap for visibility.</div>
+        </div>
+      </div>
+      <div class="steps" id="steps"></div>
+      <p class="note"><span class="tag live">live API</span> steps make real calls to the mock Promo API and FCM services, which validate every request against the data contract. <span class="tag script">scripted</span> steps show what the Phase 1 engine will do, with the numbers from the design (ARCHITECTURE §4.1); the engine itself is not built yet.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+"use strict";
+const AUTH = { "Authorization": "Bearer demo-engine-token" };
+const RIYA = {
+  user_id: "u_88213", city_id: 3, first_name: "Riya", language: "en", signup_ts: "2026-03-14T19:02:00+05:30",
+  contact: { phone_e164: "+919990088213", email: "riya.s@example.test", phone_dnd: false, email_verified: true },
+  push_tokens: [{ token: "fcm_tok_demo_riya_88213", platform: "ANDROID", updated_at: "2026-10-01T09:00:00+05:30", stale: false }],
+  consent: Object.fromEntries(["push", "email", "sms", "whatsapp"].map(c => [c, { opted_in: true, updated_at: "2026-03-14T19:02:00+05:30", source: "signup" }])),
+  status: "active", is_synthetic: true,
+};
+const FARE = 420, OFFER_PCT = 15, CAP = 75;
+const ERRORS = {
+  PROMO_EXPIRED: "This code has expired.", NOT_YET_VALID: "This code is not active yet.",
+  WRONG_USER: "This code belongs to another account.", BELOW_MIN_FARE: "Fare is below the minimum for this code.",
+  VEHICLE_NOT_ELIGIBLE: "This code is not valid for this vehicle.", CITY_NOT_ELIGIBLE: "This code is not valid in this city.",
+  USAGE_LIMIT_REACHED: "This code has already been used.", PROMO_INACTIVE: "This code is no longer active.",
+  NOT_FOUND: "This code is not valid.", NOT_FIRST_RIDE: "This code is for first rides only.",
+};
+const STEPS = [
+  [1, "Event received: booking_abandoned", "event"],
+  [2, "Trigger matched: B2 abandoned booking", "script"],
+  [3, "Timer fires: re-check Riya did not book", "script"],
+  [4, "Eligibility and guardrail checks", "script"],
+  [5, "Holdout group", "script"],
+  [6, "Scoring: will an offer change her mind?", "script"],
+  [7, "Offer, channel and timing", "script"],
+  [8, "Budget reservation and autonomy", "script"],
+  [9, "Create the promo code — Promo API", "live"],
+  [10, "Render the message from the approved template", "script"],
+  [11, "Send the push — FCM, delivery receipt", "live"],
+  [12, "Riya opens, applies the code and books", "event"],
+  [13, "Ride completed — redemption webhook, ledger", "live"],
+  [14, "Measure: lift against the holdout group", "script"],
+];
+
+let S = {};          // story state
+let lastSeq = 0, logStartSeq = 0, clockNow = null, run = 0;
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const inr = x => "₹" + Number(x).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const hex = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, "0")).join("");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const istParts = d => Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(d).map(p => [p.type, p.value]));
+const hhmm = d => { const p = istParts(d); return `${p.hour}:${p.minute}`; };
+const hhmmss = d => { const p = istParts(d); return `${p.hour}:${p.minute}:${p.second}`; };
+
+async function api(method, path, body, headers = {}) {
+  const res = await fetch(path, { method, headers: { "Content-Type": "application/json", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
+  let json = null;
+  try { json = await res.json(); } catch (e) { /* empty body */ }
+  return { status: res.status, ok: res.ok, json, headers: res.headers };
+}
+const guard = r => { if (r !== run) throw new Error("restarted"); };
+
+/* ---------- clock ---------- */
+async function tickClock() {
+  try {
+    const c = (await api("GET", "/mock/admin/clock")).json;
+    clockNow = new Date(c.now);
+    $("clock").textContent = hhmmss(clockNow) + " IST";
+    $("phone-time").textContent = hhmm(clockNow);
+    const lt = document.querySelector(".lock .time");
+    if (lt) lt.textContent = hhmm(clockNow);
+  } catch (e) { $("clock").textContent = "mock server offline"; }
+}
+const advance = s => api("POST", "/mock/admin/clock", { advance_s: s }).then(tickClock);
+
+/* ---------- activity strip ---------- */
+const NODE = { "HireMe app": "app", "HireMe backend": "app", "Engine": "engine", "Promo API": "promo", "FCM": "fcm" };
+function flash(names, cls = "flash") {
+  for (const n of names) {
+    const el = $("node-" + n);
+    if (!el) continue;
+    el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), 1100);
+  }
+}
+function addLogRow(html) {
+  const log = $("log");
+  const empty = log.querySelector(".empty");
+  if (empty) empty.remove();
+  const row = document.createElement("div");
+  row.className = "new";
+  row.innerHTML = html;
+  log.prepend(row);
+}
+async function pollActivity() {
+  try {
+    const items = (await api("GET", `/mock/admin/activity?after=${lastSeq}`)).json.activity;
+    for (const a of items) {
+      lastSeq = a.seq;
+      if (a.seq <= logStartSeq) continue;
+      const ok = a.status < 400;
+      addLogRow(`<span>${hhmmss(new Date(a.at))}</span><span class="who"><span class="tag live">live API</span> ${esc(a.caller)} → ${esc(a.service)}</span>` +
+        `<span class="path">${esc(a.action)} · ${a.method} ${esc(a.path)}</span><span class="${ok ? "st-ok" : "st-bad"}">${a.status}</span><span class="ms">${a.ms} ms</span>`);
+      flash([NODE[a.caller], NODE[a.service]]);
+    }
+  } catch (e) { /* server restarting */ }
+}
+function logEvent(name, params) {
+  const at = clockNow ? hhmmss(clockNow) : "";
+  addLogRow(`<span>${at}</span><span class="who"><span class="tag event">event</span> Riya's app → Firebase Analytics</span>` +
+    `<span class="path">${esc(name)} ${esc(params || "")}</span><span></span><span class="ms"></span>`);
+  flash(["app", "analytics"], "flash-event");
+}
+
+/* ---------- engine panel ---------- */
+function renderSteps() {
+  $("steps").innerHTML = STEPS.map(([n, t, k]) =>
+    `<div class="step" id="step-${n}"><div class="n">${n}</div><div><div class="t">${t} <span class="tag ${k}">${k === "live" ? "live API" : k}</span></div><div class="d" id="step-${n}-d"></div></div></div>`).join("");
+}
+function step(n, status, detail) {
+  const el = $("step-" + n);
+  el.classList.remove("active", "done", "fail");
+  if (status) el.classList.add(status);
+  if (detail !== undefined) $("step-" + n + "-d").innerHTML = detail;
+  if (status === "active" || status === "fail") {
+    const box = $("steps");
+    box.scrollTo({ top: Math.max(el.offsetTop - box.offsetTop - box.clientHeight / 3, 0), behavior: "smooth" });
+  }
+}
+function budget(reserved, redeemed, released) {
+  $("b-reserved").textContent = inr(reserved);
+  $("b-redeemed").textContent = inr(redeemed);
+  $("b-released").textContent = inr(released);
+  $("bar-redeemed").style.width = (redeemed / CAP * 100) + "%";
+  $("bar-reserved").style.width = (Math.max(reserved - redeemed - released, 0) / CAP * 100) + "%";
+}
+const hint = t => { $("hint").textContent = t; };
+
+/* ---------- phone screens ---------- */
+const MAP = `<div class="map"><svg viewBox="0 0 360 210" aria-hidden="true">
+  <path d="M0 150 L360 60 M60 0 L140 210 M220 0 L300 210 M0 40 L360 120" stroke="#fff" stroke-width="9" fill="none"/>
+  <path d="M70 165 C 130 140, 170 120, 200 95 S 270 50, 295 40" stroke="#0f766e" stroke-width="4" fill="none" stroke-dasharray="7 5"/>
+  <circle cx="70" cy="165" r="8" fill="#15803d"/><rect x="288" y="33" width="14" height="14" rx="3" fill="#b91c1c"/></svg></div>`;
+const ROUTE = `<div class="route"><div><span class="dot"></span>Sector 62, Noida</div><div><span class="dot drop"></span>Connaught Place, New Delhi</div></div>`;
+
+function screenBook() {
+  hint("Riya checks a fare to Connaught Place, then closes the app without booking. Tap “Not now”.");
+  $("view").innerHTML = MAP + `<div class="sheet">${ROUTE}
+    <div class="vehicles">
+      <div class="veh"><div>Mini<small>4 seats · 6 min away</small></div><b>₹349</b></div>
+      <div class="veh sel"><div>Sedan<small>4 seats · 4 min away</small></div><b>₹420</b></div>
+      <div class="veh"><div>Prime<small>4 seats · 9 min away</small></div><b>₹515</b></div>
+    </div>
+    <button class="cta" id="b-confirm">Confirm Sedan · ₹420</button>
+    <button class="link pulse" id="b-leave">Not now</button></div>`;
+  $("b-leave").onclick = leave;
+  $("b-confirm").onclick = bookWithoutOffer;
+}
+function screenLock(notification) {
+  $("view").innerHTML = `<div class="lock"><div class="time">${clockNow ? hhmm(clockNow) : ""}</div>
+    <div class="date">${clockNow ? clockNow.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "long", day: "numeric", month: "long" }) : ""}</div>
+    <div id="notifs" style="width:100%"></div></div>`;
+  if (notification) showNotification(notification);
+}
+function showNotification(n) {
+  $("notifs").innerHTML = `<button class="notif pulse" id="notif"><div class="app"><span>HireMe</span><span>now</span></div>
+    <b>${esc(n.title)}</b>${esc(n.body)}</button>`;
+  $("notif").onclick = openFromNotification;
+}
+function screenCheckout(prefill) {
+  $("view").innerHTML = MAP + `<div class="sheet">${ROUTE}
+    <div class="veh sel"><div>Sedan<small>4 seats · 3 min away</small></div><b>₹420</b></div>
+    <div class="promo-row"><input id="code" value="${esc(prefill || "")}" placeholder="Promo code" aria-label="Promo code"><button id="b-apply">Apply</button></div>
+    <div id="promo-msg"></div>
+    <div class="bill" id="bill"><div><span>Fare</span><span>${inr(FARE)}</span></div><div class="total"><span>You pay</span><span>${inr(FARE)}</span></div></div>
+    <button class="cta" id="b-book" disabled>Book Sedan · ${inr(FARE)}</button></div>`;
+  $("b-apply").onclick = applyCode;
+  $("b-apply").classList.add("pulse");
+  $("b-book").onclick = book;
+}
+function screenTrip(withPromo) {
+  hint("Riya is on her way. Tap “Complete ride” when the trip ends.");
+  $("view").innerHTML = MAP + `<div class="sheet">
+    <div class="route"><div><b>Rakesh</b>&nbsp;· Sedan · DL 1C AB 4821</div><div style="color:var(--muted)">On trip to Connaught Place · ETA 34 min</div></div>
+    <div class="bill"><div><span>Fare</span><span>${inr(FARE)}</span></div>${withPromo ? `<div class="save"><span>Promo ${esc(S.code)}</span><span>−${inr(S.discount)}</span></div>` : ""}
+    <div class="total"><span>To pay</span><span>${inr(FARE - (withPromo ? S.discount : 0))}</span></div></div>
+    <button class="cta pulse" id="b-complete">Complete ride</button></div>`;
+  $("b-complete").onclick = () => complete(withPromo);
+}
+function screenReceipt(saved) {
+  $("view").innerHTML = `<div class="sheet center" style="justify-content:center">
+    <div style="font-size:48px">✓</div><div class="big">You've arrived</div>
+    <div>Connaught Place · ${inr(FARE - saved)} paid</div>
+    ${saved ? `<div class="msg ok">You saved ${inr(saved)} with ${esc(S.code)}</div>` : ""}
+    <div style="color:var(--muted)">Rate your ride with Rakesh ★★★★★</div></div>`;
+}
+
+/* ---------- story ---------- */
+async function restart() {
+  run++;
+  const r = run;
+  S = { decisionHex: hex(12), rideId: "r_" + (480000 + Math.floor(Math.random() * 9999)) };
+  S.decisionId = "dec_" + S.decisionHex;
+  S.messageId = `msg_${S.decisionHex}_1`;
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  S.code = "GO15-" + Array.from(crypto.getRandomValues(new Uint8Array(4)), b => alphabet[b % alphabet.length]).join("");
+  const day = istParts(new Date());
+  await api("POST", "/mock/admin/clock", { now: `${day.year}-${day.month}-${day.day}T18:10:00+05:30`, scale: 1 });
+  await api("POST", "/mock/admin/riders", RIYA);
+  logStartSeq = lastSeq;
+  $("log").innerHTML = `<span class="empty">No calls yet. Start on Riya's phone.</span>`;
+  renderSteps();
+  for (const k of ["d-group", "d-offer", "d-channel", "d-code", "d-status"]) $(k).textContent = "—";
+  budget(0, 0, 0);
+  await tickClock();
+  guard(r);
+  screenBook();
+}
+
+async function leave() {
+  const r = run;
+  S.abandonedAt = clockNow;
+  logEvent("booking_abandoned", "step=confirm fare_estimate=420 drop_area_name=Connaught Place");
+  screenLock();
+  hint("Riya has put her phone away. Watch the engine on the right.");
+  try { await engine(r); } catch (e) { if (e.message !== "restarted") throw e; }
+}
+
+async function bookWithoutOffer() {
+  logEvent("ride_booked", "vehicle=sedan fare=420 promo_code=none");
+  step(1, "done", "Riya booked straight away: <code>ride_booked</code>. B2 only acts on abandoned bookings, so the engine does nothing and spends nothing.");
+  S.discount = 0;
+  screenTrip(false);
+}
+
+async function engine(r) {
+  const t0 = hhmmss(clockNow);
+  step(1, "active", `<code>booking_abandoned</code> at ${t0}: step <code>confirm</code>, fare estimate ₹420, drop Connaught Place. In production it arrives through Firebase Analytics / BigQuery (and later the backend webhook) into the Event Inbox.`);
+  await sleep(1200); guard(r); step(1, "done");
+
+  const fire = new Date(clockNow.getTime() + 600000);
+  step(2, "active", `Playbook <code>B2_abandoned_booking</code> matches (step is not payment). Timer set for <b>${hhmm(fire)}</b> (10 minutes), cancelled if Riya books in the meantime.<br><span id="ff"><b id="countdown">10:00</b> ⏩ fast-forwarding the simulated clock…</span>`);
+  for (let s = 600; s >= 0; s -= 20) {
+    await sleep(70); guard(r);
+    const el = $("countdown");
+    if (el) el.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  }
+  await advance(600 - 2); guard(r);
+  $("ff").textContent = "⏩ 10 minutes passed (simulated clock fast-forwarded for the demo).";
+  step(2, "done");
+
+  step(3, "active", `Re-check at fire time: no <code>ride_booked</code> from Riya since ${t0}. Still worth a nudge.`);
+  await sleep(1100); guard(r); step(3, "done");
+
+  step(4, "active", "✓ Noida audience &nbsp;✓ push consent (rider profile) &nbsp;✓ no B2 in last 24 h &nbsp;✓ frequency cap 0 of 2 today &nbsp;✓ no fraud flag &nbsp;✓ kill switch off");
+  await sleep(1300); guard(r); step(4, "done");
+
+  step(5, "active", "sha256(salt : B2 : u_88213) mod 10000 = 7312 ≥ 1000 → <b>treatment</b>. 10% of riders are held out and get nothing, so the lift can be measured honestly.");
+  $("d-group").textContent = "Treatment";
+  await sleep(1300); guard(r); step(5, "done");
+
+  step(6, "active", "Price sensitivity 0.71 (high). Chance she books anyway: <b>22%</b>. With an offer: 10% → 41%, <b>15% → 48%</b>, 20% → 50%.");
+  await sleep(1400); guard(r); step(6, "done");
+
+  step(7, "active", `Smallest offer with the best expected net value: <b>15% off, up to ₹75, valid 30 min</b>. Channel: push (valid token, opted in). ${hhmm(clockNow)} is outside quiet hours (22:00–08:00).`);
+  $("d-offer").textContent = "15% off, max ₹75, 30 min";
+  $("d-channel").textContent = "Push";
+  await sleep(1400); guard(r); step(7, "done");
+
+  step(8, "active", "One transaction reserves the worst case (₹75) from today's B2 budget and sets Riya's cooldown and cap. Autonomy level 2 → sends automatically, no approval needed.");
+  budget(CAP, 0, 0);
+  await sleep(1300); guard(r); step(8, "done");
+
+  // ---- 9: Promo API (live)
+  await tickClock();
+  const validTo = new Date(clockNow.getTime() + 30 * 60000);
+  if ($("hiccup").checked) {
+    await api("POST", "/mock/admin/faults", { target: "promo", mode: "outage", error: "UNAVAILABLE", until: new Date(clockNow.getTime() + 2500).toISOString() });
+  }
+  const promoBody = {
+    code: S.code, type: "percent", value: OFFER_PCT, max_discount: CAP, min_fare: 100, user_id: RIYA.user_id, usage_limit: 1,
+    city_ids: [3], vehicle_types: ["mini", "sedan"], valid_from: clockNow.toISOString(), valid_to: validTo.toISOString(),
+    meta: { campaign_id: "pb_B2_abandoned_booking", playbook_id: "B2_abandoned_booking", created_by: "ai", decision_id: S.decisionId, engage_promo_ref: "prm_" + S.decisionHex },
+  };
+  let lines = [`<code>POST /api/admin/promocodes</code> · Idempotency-Key <code>${S.decisionId}</code>`];
+  step(9, "active", lines.join("<br>"));
+  let res = null;
+  for (const [attempt, backoff] of [[1, 1000], [2, 2000], [3, 4000], [4, null]]) {
+    res = await api("POST", "/api/admin/promocodes", promoBody, { ...AUTH, "Idempotency-Key": S.decisionId });
+    guard(r);
+    if (res.ok) break;
+    lines.push(`Attempt ${attempt}: <b style="color:var(--bad)">${res.status}</b>${backoff ? ` → retry in ${backoff / 1000}s with the <b>same</b> key, so no duplicate code can be created` : ""}`);
+    step(9, "active", lines.join("<br>"));
+    if (!backoff || res.status < 500 && res.status !== 429) break;
+    await sleep(backoff); guard(r);
+  }
+  if (!res.ok) {
+    step(9, "fail", lines.join("<br>") + "<br>Promo API unavailable → decision recorded as <code>promo_api_error</code>, budget released, <b>nothing sent to Riya</b>.");
+    budget(0, 0, 0);
+    hint("The engine never sends a message without a valid code. Restart the story.");
+    return;
+  }
+  S.promoId = res.json.promo_id;
+  lines.push(`<b style="color:var(--ok)">${res.status}</b> → promo_id <code>${S.promoId}</code>, code <code>${esc(res.json.code)}</code>, valid until ${hhmm(validTo)}. The code is generated by code, never by the AI.`);
+  step(9, "done", lines.join("<br>"));
+  $("d-code").textContent = res.json.code;
+
+  // ---- 10: render
+  const title = "Still heading to Connaught Place?";
+  const body = `Complete your ride in the next 30 min and save 15% with ${S.code}.`;
+  step(10, "active", `Template <code>tpl_B2_push_en_v1</code> (approved): “${esc(title)}” / “${esc(body)}”. Price and code are inserted by code.`);
+  await sleep(1300); guard(r); step(10, "done");
+
+  // ---- 11: FCM (live)
+  const deepLink = `hireme://book?quote=fq_7781203&drop=DEL-CP&promo=${S.code}&mid=${S.messageId}&cid=pb_B2_abandoned_booking`;
+  const fcm = await api("POST", "/mock/fcm/v1/projects/hireme-engage-dev/messages:send", {
+    message: { token: RIYA.push_tokens[0].token, notification: { title, body },
+      data: { deep_link: deepLink, message_id: S.messageId, campaign_id: "pb_B2_abandoned_booking" },
+      android: { priority: "HIGH", ttl: "1800s", collapse_key: "B2" } } }, AUTH);
+  guard(r);
+  if (!fcm.ok) {
+    step(11, "fail", `FCM returned ${fcm.status}: ${esc(JSON.stringify(fcm.json))}. In production the engine retries, then falls back to SMS.`);
+    return;
+  }
+  step(11, "active", `<code>messages:send</code> → <code>${esc(fcm.json.name)}</code>. Waiting for the delivery receipt…`);
+  $("d-status").textContent = "Sent";
+  for (let i = 0; i < 40; i++) {
+    await sleep(500); guard(r);
+    const ds = (await api("GET", `/mock/deliveries?user_id=${RIYA.user_id}&limit=1000`)).json.deliveries;
+    const d = ds.find(x => x.message_id === S.messageId);
+    if (d && d.status === "delivered") {
+      step(11, "done", `<code>messages:send</code> → <code>${esc(fcm.json.name)}</code>.<br>Delivery receipt (signed webhook FCM → engine): <b>delivered</b>.`);
+      $("d-status").textContent = "Delivered";
+      showNotification({ title, body });
+      hint("The push has arrived on Riya's phone. Tap the notification.");
+      return;
+    }
+  }
+  step(11, "fail", "No delivery receipt yet. Is the mock server running with --sink?");
+}
+
+async function openFromNotification() {
+  const r = run;
+  logEvent("notification_opened", `engage_message_id=${S.messageId}`);
+  $("d-status").textContent = "Opened";
+  step(12, "active", "Riya opened the push. The deep link reopens her booking with the promo code filled in.");
+  await advance(4 * 60); guard(r);
+  screenCheckout(S.code);
+  hint("The code is pre-filled from the notification. Tap “Apply” (or type another code to see a rejection).");
+}
+
+async function applyCode() {
+  const r = run;
+  const code = $("code").value.trim().toUpperCase();
+  const out = $("promo-msg");
+  if (!code) { out.innerHTML = `<div class="msg err">Enter a promo code.</div>`; return; }
+  const res = await api("POST", `/mock/promocodes/${encodeURIComponent(code)}/apply`,
+    { user_id: RIYA.user_id, fare_inr: FARE, vehicle_type: "sedan", city_id: 3, ride_id: S.rideId });
+  guard(r);
+  if (!res.ok) {
+    const c = res.json && res.json.code;
+    out.innerHTML = `<div class="msg err">${esc(ERRORS[c] || "This code cannot be applied.")} <small>(${esc(c || res.status)})</small></div>`;
+    return;
+  }
+  S.code = code;
+  S.discount = res.json.discount_inr;
+  logEvent("promo_applied", `promo_code=${code} discount=${S.discount}`);
+  out.innerHTML = `<div class="msg ok">${esc(code)} applied: 15% off, up to ₹75</div>`;
+  $("bill").innerHTML = `<div><span>Fare</span><span>${inr(FARE)}</span></div><div class="save"><span>Promo ${esc(code)}</span><span>−${inr(S.discount)}</span></div>
+    <div class="total"><span>You pay</span><span>${inr(res.json.net_fare_inr)}</span></div>`;
+  $("b-apply").classList.remove("pulse");
+  const b = $("b-book");
+  b.disabled = false;
+  b.textContent = `Book Sedan · ${inr(res.json.net_fare_inr)}`;
+  b.classList.add("pulse");
+  hint(`The Promo API checked the code (Riya's own, still valid, Sedan allowed, above the minimum fare) and gave ${inr(S.discount)} off. Tap “Book”.`);
+}
+
+async function book() {
+  logEvent("ride_booked", `promo_code=${S.code} engage_message_id=${S.messageId}`);
+  $("d-status").textContent = "Converted";
+  step(12, "done", `Opened the push, applied <code>${esc(S.code)}</code> (−${inr(S.discount)}), booked. <code>ride_booked</code> within 24 h of the message → <b>conversion attributed to this decision</b>.`);
+  screenTrip(true);
+}
+
+async function complete(withPromo) {
+  const r = run;
+  await advance(7 * 60); guard(r);
+  logEvent("ride_completed", `ride_id=${S.rideId} fare=420`);
+  if (!withPromo) { screenReceipt(0); hint("Ride done without any offer. Restart the story and tap “Not now” this time."); return; }
+  step(13, "active", "Ride completed → the HireMe backend redeems the code on the Promo API…");
+  const res = await api("POST", `/mock/promocodes/${encodeURIComponent(S.code)}/redeem`,
+    { user_id: RIYA.user_id, ride_id: S.rideId, fare_inr: FARE, vehicle_type: "sedan", city_id: 3 });
+  guard(r);
+  screenReceipt(withPromo && res.ok ? res.json.discount_inr : 0);
+  hint("Done. Riya rode and saved money; HireMe got a ride it would probably have lost.");
+  if (!res.ok) { step(13, "fail", `Redeem returned ${res.status}: ${esc(JSON.stringify(res.json))}`); return; }
+  const eventId = res.json.event_id;
+  for (let i = 0; i < 30; i++) {
+    await sleep(400); guard(r);
+    const got = (await api("GET", "/sink/received?kind=promo_redeemed")).json;
+    const hook = got && got.received.find(x => x.body.event_id === eventId);
+    if (hook) {
+      const cost = hook.body.discount_inr;
+      step(13, "done", `Signed webhook Promo API → engine: <code>${eventId}</code>, discount ${inr(cost)} on a ${inr(hook.body.gross_fare_inr)} ride (status <b>${hook.status}</b>; a retry would be ignored as a duplicate).<br>Ledger: reserved ${inr(CAP)} → redeemed <b>${inr(cost)}</b>, ${inr(CAP - cost)} released back to the budget.`);
+      budget(CAP, cost, CAP - cost);
+      $("d-status").textContent = "Redeemed";
+      step(14, "done", "Every night the engine compares B2 riders who got offers with the 10% holdout who got nothing: conversion, incremental rides, promo cost and ROI per city. Only the difference counts as the engine's result, not every ride with a code.");
+      return;
+    }
+  }
+  step(13, "fail", "No redemption webhook received. Is the mock server running with --sink?");
+}
+
+$("restart").onclick = restart;
+setInterval(pollActivity, 500);
+setInterval(tickClock, 1000);
+pollActivity().then(restart);
+</script>
+</body>
+</html>

@@ -555,7 +555,17 @@ Mock service `engage-mocks` (dev only) exposes all providers under one host with
 |---|---|---|
 | POST | `/mock/admin/faults` | `{ "target": "fcm", "mode": "error_rate", "rate": 0.2, "error": "UNAVAILABLE", "until": "…" }`; modes `error_rate`, `outage`, `latency` (`p50_ms`, `p99_ms`), `reset` |
 | GET | `/mock/admin/stats` | Requests, errors, latencies per target |
-| GET | `/mock/deliveries?user_id=` | What a user "received" (reads `mock_deliveries`) |
+| GET | `/mock/deliveries?user_id=&since=&limit=` | What a user "received" (reads `mock_deliveries`; the responder polls with `since`) |
+| GET/POST | `/mock/admin/clock` | Virtual clock: `{now, scale, advance_s}`; virtual time = anchor + real elapsed × scale; receipt delays are virtual |
+| POST | `/mock/admin/riders` | Upsert `RiderProfile` docs (for example mark a push token stale mid-scenario) |
+| POST | `/mock/admin/dlt` | Register a DLT template `{template_id, body, sender_id, category}` (SMS templates under `contracts/examples/templates` and `templates/` load at start) |
+| GET | `/mock/admin/activity?after=` | Recent calls between the services (feeds the demo page, D-093) |
+| GET | `/demo` | Riya's B2 story, split screen, for client demos (D-093, docs/DEMO.md) |
+| GET | `/demo/data`, `/mock/admin/data?refresh=` | The synthetic data in Firestore and BigQuery, read-only from `--data-project` (default `hireme-engage-dev`), contact masked, cached 15 min; local files if the project is unreachable or `--no-cloud-data` (D-094) |
+| POST | `/mock/admin/drain` | Send all scheduled receipts and webhooks now (scripted scenarios) |
+| POST | `/mock/promocodes/{code}/apply`, `/redeem` | Simulator only, §6.1 |
+
+Run: `.venv/bin/python -m mocks --riders data/gen/demo_s42/firestore/hireme_riders.ndjson --sink [--scale 60] [--store firestore --project demo-hireme-engage-dev]` (D-091). Providers are served under `/mock/fcm`, `/mock/sms`, `/mock/email`, `/mock/whatsapp` with the paths of [contracts/openapi/channels.v1.yaml](../contracts/openapi/channels.v1.yaml) (D-092); the Promo API at its own paths. Every request is validated against the contract's JSON Schemas. Fault profiles: `default` (the baselines below) or `none`. `--sink` mounts a dev receiver for the engine webhooks at `/sink` that checks the HMAC signature and the ingest schemas, until the engine API exists.
 
 ### 6.1 HireMe Promo API (spec 8.2, "existing, to confirm")
 
@@ -594,7 +604,13 @@ Engine additions to `meta`: `decision_id`, `engage_promo_ref`. Types: `percent`,
 
 **Deactivate** `PATCH /api/admin/promocodes/{promo_id}` → `{"status": "inactive", "reason": "campaign_cancelled"}` → `200`. Used on campaign cancel, kill switch with `deactivate_codes: true`, and user unsubscribe.
 
-**Mock behaviour**: state in Firestore `mock_promo_codes`; validates field types and restriction values; returns 409 for duplicate `code`; honours `Idempotency-Key` for 24 h; exposes `POST /mock/promocodes/{code}/apply` used by the simulator to emulate the backend applying the code at booking (checks user lock, validity window, min fare, vehicle, usage limit, computes `discount = min(value% × fare, max_discount)`); on ride completion the simulator calls `POST /mock/promocodes/{code}/redeem`, which records usage, writes `hireme_backend_stub.promo_redemptions` (log shipper) and calls the engine webhook §3.1. Default fault profile: 0.5 % 503, p50 latency 120 ms.
+**Mock behaviour** (D-091): state in memory or Firestore `mock_promo_codes`; validates field types and restriction values; returns 409 for duplicate `code`; honours `Idempotency-Key` for 24 h; exposes `POST /mock/promocodes/{code}/apply` used by the simulator to emulate the backend applying the code at booking (checks user lock, validity window, min fare, vehicle, usage limit, computes `discount = min(value% × fare, max_discount)`); on ride completion the simulator calls `POST /mock/promocodes/{code}/redeem`, which records usage, writes `hireme_backend_stub.promo_redemptions` (log shipper) and calls the engine webhook §3.1. Default fault profile: 0.5 % 503, p50 latency 120 ms (p99 360 ms). Details as built:
+
+- `apply` body: `user_id, fare_inr, vehicle_type, city_id` plus optional `ride_id, first_ride, upgrade_fare_inr, at`. With `ride_id` the result is kept and honoured at `redeem` (the backend locks the price at booking). Rejections are `422` with `code` `PROMO_INACTIVE`, `NOT_YET_VALID`, `PROMO_EXPIRED`, `WRONG_USER`, `CITY_NOT_ELIGIBLE`, `VEHICLE_NOT_ELIGIBLE`, `BELOW_MIN_FARE`, `NOT_FIRST_RIDE`, `USAGE_LIMIT_REACHED`.
+- Amounts: `percent` = min(value % × fare, max_discount); `flat` and `free_ride` = min(value, fare, max_discount); `cashback` = no discount at booking, min(value, max_discount) credited (that amount is the webhook's `discount_inr`, the cost); `upgrade` = target-vehicle fare minus booked fare, capped. Rounded half-up to the paisa.
+- `redeem` is idempotent on `ride_id` (`status: duplicate`, same `event_id`, no second webhook). `event_id` = `prx_` + hash of promo and ride.
+- The same `Idempotency-Key` with a different body returns `422 IDEMPOTENCY_KEY_REUSED`.
+- Writing `hireme_backend_stub.promo_redemptions` waits for the log shipper (M0.5).
 
 ### 6.2 Push: FCM HTTP v1 (spec 8.3)
 
@@ -624,7 +640,7 @@ Real: `POST https://fcm.googleapis.com/v1/projects/{project_id}/messages:send` (
 | `QUOTA_EXCEEDED` (429), `UNAVAILABLE` (503), `INTERNAL` (500) | retryable |
 | `SENDER_ID_MISMATCH`, `THIRD_PARTY_AUTH_ERROR` | permanent, alert (config problem) |
 
-**Mock**: `POST /mock/fcm/v1/projects/{p}/messages:send` with the same request/response shape; returns `UNREGISTERED` for tokens marked stale in `hireme_riders` (≈ 5 % synthetic), 0.5 % `UNAVAILABLE`; writes `mock_deliveries`; calls the delivery webhook after 0.5-3 s; the simulator responder sees the delivery and decides open/convert.
+**Mock**: `POST /mock/fcm/v1/projects/{p}/messages:send` with the same request/response shape (`data.message_id` required, D-092); returns `UNREGISTERED` for tokens marked stale in `hireme_riders` (≈ 5 % synthetic) and for unknown tokens, 0.5 % `UNAVAILABLE`; `validate_only` sends nothing; writes `mock_deliveries`; calls the delivery webhook after 0.5-3 s; the simulator responder sees the delivery and decides open/convert.
 
 ### 6.3 SMS (MSG91 / Twilio / local gateway, via Grepix) with TRAI DLT
 
@@ -646,7 +662,7 @@ Logical request the adapter sends (proposed Grepix gateway contract until the re
 
 Rules: body must equal the DLT template with variables substituted (adapter verifies before sending; mismatch = permanent error `DLT_TEMPLATE_MISMATCH`); `category` from `message_class` (`transactional` → transactional, `service` → service-implicit, `marketing` → promotional); promotional only to `phone_dnd = false`, 10:00-21:00 IST. Links use the tracked short link (§3.3).
 
-**Mock**: validates DLT match against `engage_templates.dlt`; rejects promotional SMS to DND numbers (`dnd_blocked`); 1 % failure; delivery callback after 2-20 s; cost ₹0.20 (promotional) / ₹0.15 (transactional) per SMS recorded in `cost_inr`.
+**Mock**: validates the body against the registered DLT template (variables up to 30 characters, `template_vars` must agree) → `400 DLT_TEMPLATE_MISMATCH`; rejects promotional SMS outside 09:00-21:00 IST (`400 OUTSIDE_PROMOTIONAL_WINDOW`, the TRAI window; the engine's own window is stricter); promotional SMS to DND numbers is accepted and then gets a `dnd_blocked` receipt, as real gateways report it; 1 % `failed`; receipts go to the configured engine URL (`callback_url` is recorded only); delivery callback after 2-20 s; cost ₹0.20 (promotional) / ₹0.15 (transactional) per SMS recorded in `cost_inr`.
 
 ### 6.4 Email (Amazon SES or SendGrid, via Grepix)
 
@@ -663,7 +679,7 @@ Rules: body must equal the DLT template with variables substituted (adapter veri
 }
 ```
 
-→ `202 {"provider_message_id": "em_…"}`. **Mock**: 2 % hard bounce for addresses flagged invalid in the stub, 0.1 % complaint (treated as unsubscribe), delivery callback; email opens are emitted by the responder via the tracked link.
+→ `202 {"provider_message_id": "em_…"}`. **Mock**: `bounced` for addresses unknown to the stub or with `contact.email_verified = false`, plus 2 % hard bounce; 0.1 % complaint after delivery (treated as unsubscribe); marketing email without `List-Unsubscribe` and `List-Unsubscribe-Post` is rejected (`400`); delivery callback; email opens are emitted by the responder via the tracked link.
 
 ### 6.5 WhatsApp (wa.grepixit.com or WhatsApp Business API) – Phase 3
 
@@ -675,7 +691,7 @@ Rules: body must equal the DLT template with variables substituted (adapter veri
 }
 ```
 
-Only pre-approved templates, only with `consent.whatsapp.opted_in = true`. **Mock**: same shape, `delivered` and `read` callbacks.
+Only pre-approved templates, only with `consent.whatsapp.opted_in = true`. **Mock**: same shape; `400 NO_WHATSAPP_CONSENT` without opt-in in the stub; `delivered`, then `read` for 60 %.
 
 ### 6.6 In-app (Firebase In-App Messaging) – Phase 3
 

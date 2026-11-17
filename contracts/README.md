@@ -19,6 +19,7 @@ and what the engine, simulator and loaders are built on. The background and reas
 | `openapi/engage-ingest.v1.yaml` | `POST /engage/v1/events` (future webhook), promo-redeemed and delivery webhooks, tracked links, unsubscribe | Backend calls it; engine serves it |
 | `openapi/rider-api.v1.yaml` | Rider Profile API + consent write-back; also the shape of the `hireme_riders` stub (D-074) | **Backend provides it** |
 | `openapi/promo-api.v1.yaml` | Promo API create/usage/deactivate + redemption webhook (to be matched to the real API, OQ-08) | **Backend provides it**; mock now |
+| `openapi/channels.v1.yaml` | Outbound push (FCM v1) and the proposed Grepix SMS/email/WhatsApp gateway, as the engine's adapters call them (D-092; replaced by Grepix's real API, OQ-09) | **Grepix provides it**; mock now |
 | `playbook.schema.json` | Playbook configuration (D-071) | Engine, console, playbook-author agent |
 | `template.schema.json` | Message template | Engine, console |
 | `bigquery/ga4_events_schema.json` | GA4 export table schema, core columns (D-077) | Loaders (synthetic shards) |

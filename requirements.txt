@@ -6,3 +6,6 @@ openapi-spec-validator==0.9.0
 numpy==2.5.4                 # synthetic data generator (sim/)
 google-cloud-bigquery==3.46.2   # loaders, engine BigQuery access (D-010)
 google-cloud-firestore==2.34.1  # loaders, engine Firestore access (D-010)
+fastapi==0.162.2               # engage-mocks now, engine API later (D-091)
+uvicorn==0.54.0
+httpx==0.28.1                  # webhook sender, FastAPI TestClient

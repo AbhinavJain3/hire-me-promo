@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synthetic Data Overview</title>
+<style>
+:root {
+  --bg: #f4f5f7; --panel: #ffffff; --ink: #1d2330; --muted: #6b7280; --line: #e3e6eb;
+  --accent: #0f766e; --accent-soft: #e6f4f2; --live: #1d4ed8; --live-soft: #e8efff;
+  --warn: #b45309; --warn-soft: #fdf2e3; --bad: #b91c1c; --bad-soft: #fdecec;
+  --bar: #0f766e; --bar-dim: #9ccfc9; --code-bg: #11151c; --code-ink: #d7dde8;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font); }
+button, a.btn { font: inherit; cursor: pointer; }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 12px 16px 32px; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+header h1 { font-size: 20px; margin: 0; }
+header p { margin: 2px 0 0; color: var(--muted); max-width: 820px; }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 8px; color: var(--ink); text-decoration: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn:disabled { opacity: .5; cursor: default; }
+.source { font-size: 12px; padding: 6px 10px; border-radius: 8px; background: var(--live-soft); color: var(--live); font-weight: 600; }
+.source.local { background: var(--warn-soft); color: var(--warn); }
+.banner { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; display: none; }
+.banner.show { display: block; }
+
+.kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 14px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.kpi b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+.kpi span { color: var(--muted); font-size: 12px; }
+.kpi small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.col { display: grid; gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.card > h2 { font-size: 15px; margin: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.card > p.sub { color: var(--muted); margin: 2px 0 10px; font-size: 13px; }
+.card h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+.pill { font: 600 11px var(--font); padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.pill.blue { background: var(--live-soft); color: var(--live); }
+
+/* horizontal bars */
+.hbars { display: grid; gap: 2px; }
+.hbar { display: grid; grid-template-columns: 170px 1fr 80px; gap: 8px; align-items: center; padding: 2px 0; font-size: 13px; border-radius: 4px; }
+.hbar:hover { background: var(--bg); }
+.hbar .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar .lbl small { color: var(--muted); }
+.hbar .track { height: 12px; }
+.hbar .track i { display: block; height: 100%; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 2px; transition: width .6s; }
+.hbar.dim .track i { background: var(--bar-dim); }
+.hbar .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+.more { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+/* daily columns */
+.daily { position: relative; height: 140px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--line); }
+.daily i { flex: 1; background: var(--bar); border-radius: 4px 4px 0 0; min-height: 2px; }
+.daily i:hover { background: var(--live); }
+.axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 3px; }
+
+/* funnel */
+.funnel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.fstep { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.fstep b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.fstep span { font: 12px var(--mono); color: var(--muted); }
+.fstep.hl { border-color: var(--accent); background: var(--accent-soft); }
+.fstep.hl span { color: var(--accent); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--line); padding: 4px 6px; }
+td { border-bottom: 1px solid var(--line); padding: 5px 6px; font-variant-numeric: tabular-nums; }
+td.num, th.num { text-align: right; }
+tr.pick { cursor: pointer; }
+tr.pick:hover td { background: var(--bg); }
+tr.pick.sel td { background: var(--accent-soft); }
+.yes { color: var(--accent); font-weight: 700; } .no { color: var(--muted); }
+pre { background: var(--code-bg); color: var(--code-ink); font: 12px/1.5 var(--mono); border-radius: 10px; padding: 10px 12px; margin: 8px 0 0; overflow: auto; max-height: 300px; }
+.k { color: #8ab4f8; } .s { color: #a5d6a7; } .n { color: #f6c177; }
+.note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.loading { text-align: center; color: var(--muted); padding: 60px 0; }
+.spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); margin: 0 auto 10px; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#tip { position: fixed; pointer-events: none; background: var(--ink); color: #fff; font-size: 12px; padding: 5px 8px; border-radius: 6px; display: none; z-index: 10; white-space: nowrap; }
+
+@media (max-width: 1000px) {
+  .kpis { grid-template-columns: repeat(3, 1fr); }
+  .grid { grid-template-columns: 1fr; }
+  .funnel { grid-template-columns: repeat(2, 1fr); }
+  .hbar { grid-template-columns: 120px 1fr 64px; }
+}
+@media (max-width: 520px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>The synthetic data behind the engine — Firebase and BigQuery</h1>
+      <p>Riders and 45 days of app activity, generated from 12 rider personas and loaded into the dev project. Until HireMe's backend sends real events, the engine is built and tested on this data. Every rider is synthetic; contact details are masked here anyway.</p>
+    </div>
+    <div class="controls">
+      <span class="source" id="source">Loading…</span>
+      <button class="btn" id="refresh" title="Read the dev project again (a few seconds)">Refresh</button>
+      <a class="btn primary" href="/demo">Riya's story →</a>
+    </div>
+  </header>
+  <div class="banner" id="banner"></div>
+  <div id="root"><div class="loading"><div class="spinner"></div>Reading Firestore and BigQuery in the dev project…</div></div>
+</div>
+<div id="tip"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n).toLocaleString("en-IN");
+const inr = n => "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "–";
+const B2_EVENTS = ["fare_check", "booking_started", "booking_abandoned"];
+
+function jsonHtml(v) {
+  return esc(JSON.stringify(v, null, 2))
+    .replace(/(&quot;[^&]*?&quot;)(\s*:)/g, '<span class="k">$1</span>$2')
+    .replace(/:\s(&quot;.*?&quot;)/g, ': <span class="s">$1</span>')
+    .replace(/:\s(-?\d[\d.]*|true|false|null)/g, ': <span class="n">$1</span>');
+}
+
+// GA4 stores params as [{key, value}]; show them as one object so the event reads easily.
+const eventView = e => e ? { ...e, event_params: Object.fromEntries((e.event_params || []).map(p => [p.key, p.value])) } : {};
+
+function hbars(rows, { label, value, tip, dim, max } = {}) {
+  const top = max ?? Math.max(...rows.map(value), 1);
+  return `<div class="hbars">${rows.map(r => `
+    <div class="hbar${dim && dim(r) ? " dim" : ""}" data-tip="${esc(tip ? tip(r) : "")}">
+      <div class="lbl">${label(r)}</div>
+      <div class="track"><i style="width:${(100 * value(r) / top).toFixed(1)}%"></i></div>
+      <div class="val">${fmt(value(r))}</div>
+    </div>`).join("")}</div>`;
+}
+
+function render(d) {
+  const fs = d.firestore, bq = d.bigquery, g = d.generation;
+  const live = d.source === "cloud";
+  $("source").className = "source" + (live ? "" : " local");
+  const when = new Date(d.loaded_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
+  $("source").textContent = live ? `Live from ${d.project} · read ${when} IST` : "From the local generator files";
+  $("banner").className = "banner" + (d.error ? " show" : "");
+  $("banner").textContent = d.error ? `Could not reach the dev project, so this page shows the same data from the local files (${d.error}).` : "";
+
+  const byName = Object.fromEntries(bq.by_name.map(r => [r.name, r.n]));
+  const rides = bq.rides.reduce((a, r) => a + r.n, 0);
+  const completed = bq.rides.find(r => r.status === "completed") || { n: 0, avg_fare: 0, with_promo: 0 };
+  const redemptions = bq.promos.reduce((a, r) => a + r.n, 0);
+  const discount = bq.promos.reduce((a, r) => a + r.discount, 0);
+  const total = fs.riders_total;
+  const days = bq.daily.length;
+  const dmax = Math.max(...bq.daily.map(r => r.n), 1);
+  const topNames = bq.by_name.slice(0, 12);
+
+  $("root").innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><span>Riders</span><b>${fmt(total)}</b><small>Firestore · hireme_riders</small></div>
+    <div class="kpi"><span>App events</span><b>${fmt(bq.events_total)}</b><small>BigQuery · ${bq.by_name.length} event types</small></div>
+    <div class="kpi"><span>Rides</span><b>${fmt(rides)}</b><small>${fmt(completed.n)} completed · avg ${inr(completed.avg_fare)}</small></div>
+    <div class="kpi"><span>Promo redemptions</span><b>${fmt(redemptions)}</b><small>${inr(discount)} discount given</small></div>
+    <div class="kpi"><span>History</span><b>${days} days</b><small>${g ? `${g.window.start_ist} → ${g.window.end_ist}` : ""}</small></div>
+    <div class="kpi"><span>Rider personas</span><b>${bq.personas.length}</b><small>${g ? `seed ${g.seed} · contract ${g.contract}` : ""}</small></div>
+  </div>
+
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <h2>Firestore <span class="pill">hireme_riders</span> <span class="pill blue">${fmt(total)} documents</span></h2>
+        <p class="sub">Stands in for HireMe's Rider DB. The engine reads each rider's city, language, consent, push tokens and contact flags from here before it sends anything.</p>
+        <h3>Riders by city</h3>
+        ${hbars(fs.by_city, { label: r => `${esc(r.city)}${r.pilot ? ' <small>pilot city</small>' : ""}`, value: r => r.n,
+             tip: r => `${r.city}: ${fmt(r.n)} riders (${pct(r.n, total)})`, dim: r => !r.pilot })}
+        <h3>Who can we reach, and how</h3>
+        ${hbars([
+            { k: "Push opted in", n: fs.reach.push_opt_in }, { k: "Email opted in", n: fs.reach.email_opt_in },
+            { k: "WhatsApp opted in", n: fs.reach.whatsapp_opt_in }, { k: "Phone on DND list", n: fs.reach.phone_dnd }],
+          { label: r => `${r.k} <small>${pct(r.n, total)}</small>`, value: r => r.n, max: total,
+            tip: r => `${r.k}: ${fmt(r.n)} of ${fmt(total)} riders`, dim: r => r.k.startsWith("Phone") })}
+        <p class="note">Consent and DND decide which channel the engine may use for each rider: no consent, no message.</p>
+        <h3>Sample documents <small style="text-transform:none;letter-spacing:0">(click a row)</small></h3>
+        <table>
+          <thead><tr><th>user_id</th><th>Name</th><th>City</th><th>Lang</th><th>Phone</th><th>Push</th><th>WhatsApp</th><th class="num">Wallet</th></tr></thead>
+          <tbody>${fs.sample.map((r, i) => `
+            <tr class="pick${i === 0 ? " sel" : ""}" data-i="${i}">
+              <td>${esc(r.user_id)}</td><td>${esc(r.first_name)}</td><td>${esc(r.city)}</td><td>${esc(r.language)}</td>
+              <td style="font-family:var(--mono)">${esc(r.contact.phone_e164)}</td>
+              <td class="${r.consent.push ? "yes" : "no"}">${r.consent.push ? "yes" : "no"}</td>
+              <td class="${r.consent.whatsapp ? "yes" : "no"}">${r.consent.whatsapp ? "yes" : "no"}</td>
+              <td class="num">${inr(r.wallet_balance_inr)}</td></tr>`).join("")}</tbody>
+        </table>
+        <pre id="doc">${jsonHtml(fs.sample[0] || {})}</pre>
+      </div>
+
+      <div class="card">
+        <h2>Rider personas <span class="pill">engage_sim.personas</span></h2>
+        <p class="sub">Each persona has its own ride rhythm, price sensitivity and response to offers. The generator also records how each persona truly responds to each offer, so we can later check that the engine finds the riders it can really move.</p>
+        ${hbars(bq.personas, { label: r => `${esc(r.id)} <small>${esc(r.label)}</small>`, value: r => r.n,
+             tip: r => `${r.id} ${r.label}: ${fmt(r.n)} riders` })}
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h2>BigQuery <span class="pill">${esc(bq.datasets[0])}.events_*</span> <span class="pill blue">${fmt(bq.events_total)} events</span></h2>
+        <p class="sub">Shaped exactly like Firebase Analytics' BigQuery export, so the same queries will run on HireMe's real export later.</p>
+        <h3>Events per day</h3>
+        <div class="daily">${bq.daily.map(r => `<i style="height:${(100 * r.n / dmax).toFixed(1)}%" data-tip="${r.d}: ${fmt(r.n)} events"></i>`).join("")}</div>
+        <div class="axis"><span>${bq.daily[0]?.d ?? ""}</span><span>${bq.daily[bq.daily.length - 1]?.d ?? ""}</span></div>
+        <h3>Events by type <small style="text-transform:none;letter-spacing:0">(dark: the events playbook B2 watches)</small></h3>
+        ${hbars(topNames, { label: r => `<span style="font-family:var(--mono)">${esc(r.name)}</span>`, value: r => r.n,
+             tip: r => `${r.name}: ${fmt(r.n)} (${pct(r.n, bq.events_total)} of events)`, dim: r => !B2_EVENTS.includes(r.name) })}
+        ${bq.by_name.length > 12 ? `<p class="more">+ ${bq.by_name.length - 12} more types: ${bq.by_name.slice(12).map(r => esc(r.name)).join(", ")}</p>` : ""}
+      </div>
+
+      <div class="card">
+        <h2>Where Riya's story comes from</h2>
+        <p class="sub">Playbook B2 watches for riders who check a fare and start booking, but leave. In 45 days of synthetic history:</p>
+        <div class="funnel">
+          <div class="fstep"><b>${fmt(byName.fare_check || 0)}</b><span>fare_check</span></div>
+          <div class="fstep"><b>${fmt(byName.booking_started || 0)}</b><span>booking_started</span></div>
+          <div class="fstep hl"><b>${fmt(byName.booking_abandoned || 0)}</b><span>booking_abandoned</span></div>
+          <div class="fstep"><b>${fmt(byName.ride_booked || 0)}</b><span>ride_booked</span></div>
+        </div>
+        <p class="note">${fmt(byName.booking_abandoned || 0)} abandoned bookings are the moments B2 acts on. One raw event, as it sits in BigQuery:</p>
+        <pre>${jsonHtml(eventView(bq.sample_event))}</pre>
+      </div>
+
+      <div class="card">
+        <h2>Rides and promo codes <span class="pill">hireme_backend_stub</span></h2>
+        <p class="sub">Stands in for HireMe's ride and promo tables: fares, discounts and redemptions, used to measure what each offer really cost and earned.</p>
+        <div class="grid" style="gap:14px">
+          <table>
+            <thead><tr><th>Ride status</th><th class="num">Rides</th><th class="num">With promo</th></tr></thead>
+            <tbody>${bq.rides.map(r => `<tr><td>${esc(r.status)}</td><td class="num">${fmt(r.n)}</td><td class="num">${fmt(r.with_promo)}</td></tr>`).join("")}</tbody>
+          </table>
+          <table>
+            <thead><tr><th>Promo code</th><th class="num">Used</th><th class="num">Discount</th></tr></thead>
+            <tbody>${bq.promos.map(r => `<tr><td style="font-family:var(--mono)">${esc(r.code)}</td><td class="num">${fmt(r.n)}</td><td class="num">${inr(r.discount)}</td></tr>`).join("")}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>All tables loaded</h2>
+        <p class="sub">${live ? `Read from ${esc(d.project)} at ${when} IST${bq.scanned_bytes ? ` (${(bq.scanned_bytes / 1e6).toFixed(1)} MB scanned)` : ""}.` : "Counted from the local generator files."}</p>
+        <table>
+          <thead><tr><th>Dataset</th><th>Table</th><th class="num">Rows</th></tr></thead>
+          <tbody>
+            <tr><td>Firestore</td><td>hireme_riders</td><td class="num">${fmt(total)}</td></tr>
+            ${bq.tables.map(t => `<tr><td>${esc(t.dataset)}</td><td>${esc(t.table)}</td><td class="num">${fmt(t.rows)}</td></tr>`).join("")}
+          </tbody>
+        </table>
+        ${g ? `<p class="note">Generation <code>${esc(g.id)}</code>: the same seed and window always produce the same data.</p>` : ""}
+      </div>
+    </div>
+  </div>`;
+
+  document.querySelectorAll("tr.pick").forEach(tr => tr.onclick = () => {
+    document.querySelectorAll("tr.pick").forEach(x => x.classList.toggle("sel", x === tr));
+    $("doc").innerHTML = jsonHtml(fs.sample[+tr.dataset.i]);
+  });
+}
+
+async function load(refresh) {
+  $("refresh").disabled = true;
+  if (refresh) $("source").textContent = "Reading the dev project…";
+  try {
+    const r = await fetch("/mock/admin/data" + (refresh ? "?refresh=true" : ""));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || r.statusText);
+    render(d);
+  } catch (e) {
+    $("root").innerHTML = `<div class="loading">Could not load the data: ${esc(e.message)}</div>`;
+    $("source").textContent = "Unavailable";
+  } finally {
+    $("refresh").disabled = false;
+  }
+}
+
+const tip = $("tip");
+document.addEventListener("mousemove", e => {
+  const t = e.target.closest("[data-tip]");
+  if (!t || !t.dataset.tip) { tip.style.display = "none"; return; }
+  tip.textContent = t.dataset.tip;
+  tip.style.display = "block";
+  const x = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8);
+  tip.style.left = x + "px"; tip.style.top = (e.clientY + 14) + "px";
+});
+$("refresh").onclick = () => load(true);
+load(false);
+</script>
+</body>
+</html>

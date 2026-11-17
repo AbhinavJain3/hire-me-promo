@@ -6,7 +6,7 @@
 | Author | AI (Fable 5.1) |
 | How to use | Each question has our **default assumption** (the decision we have taken so work can proceed) and what it **blocks**. Answers update the linked decision in [../decision.md](../decision.md) (Status → Accepted, or a superseding entry). |
 
-**Status (2026-11-09):** the client reviewed the checklist and accepted our default for every question except OQ-06, which they answered (D-086). All decisions D-001 to D-086 are Accepted. One new question is open (OQ-41).
+**Status (2026-11-09):** the client reviewed the checklist and accepted our default for every question except OQ-06, which they answered (D-086). All decisions D-001 to D-086 are Accepted. Open questions: OQ-41, OQ-42 (added 2026-11-17).
 
 Priority: **P1** = blocks Phase 0/1 or the backend handoff; **P2** = needed before the real pilot; **P3** = needed for Phase 3.
 
@@ -15,6 +15,7 @@ Priority: **P1** = blocks Phase 0/1 or the backend handoff; **P2** = needed befo
 | ID | Question | Default assumption | Blocks | Pri | Decision |
 |---|---|---|---|---|---|
 | OQ-41 | Measurement Protocol for Firebase apps needs the rider's app instance id (`app_instance_id`, our `user_pseudo_id`) for every server event sent to GA4 (D-086). How will the backend get it? | The app sends its Firebase app instance id with each booking and sign-up API call; the backend stores the latest one per rider and uses it for Measurement Protocol. Events with no known id go only to the webhook. This makes `user_pseudo_id` effectively required for server events sent to GA4 (D-069 stays as is for the webhook). | GA4 copy of server events (HB2) | P2 | D-069, D-086 |
+| OQ-42 | Fast path transport: does HireMe want option G (backend → Kafka, Valkey) over option E (direct endpoint) or F (Firestore write)? Who operates Kafka/Valkey, which provider and region, and is the post-`fare_check` wait 15 min (spec) or 180 s? | Kafka accepted only as a transport into the existing inbox with durable timers (not key-expiry triggers); B1 keeps 15 min and 180 s is tested as an experiment arm; no real rider data to any new provider without approval | Fast path for B1/B2 on real riders | P2 | D-001, D-095 |
 
 ## Closed
 

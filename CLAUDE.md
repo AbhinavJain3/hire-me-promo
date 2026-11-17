@@ -25,5 +25,6 @@ Build the HireMe AI Engagement Engine: read rider events (Firebase Analytics / B
 - Docs: `docs/` (ARCHITECTURE, DATA_MODEL, API, DUMMY_DATA_PLAN, IMPLEMENTATION_PLAN, AGENTS_AND_SKILLS, OPEN_QUESTIONS); root: `decision.md`, `flow.md`, `README.md`.
 - Planned code layout: see `docs/ARCHITECTURE.md` §14 (`contracts/`, `engage/`, `sql/`, `playbooks/`, `templates/`, `sim/`, `mocks/`, `console/`, `tests/`).
 - Claude Code subagents: `.claude/agents/` (contract-steward, synthetic-data-engineer, bigquery-analyst, firestore-operator, playbook-author, guardrail-auditor, scenario-runner, compliance-reviewer, docs-keeper, uplift-modeler). Skills: `.claude/skills/` (log-decision, update-flow, generate-dummy-data, load-bigquery, seed-firestore, run-scenario, holdout-report, new-playbook, validate-contract, ga4-sql). Design rationale: `docs/AGENTS_AND_SKILLS.md`.
-- Not yet created: `.mcp.json` and `.claude/settings.json` (MCP package versions and tool names must be verified first, milestone M0.2). Agent `tools:` lists use the expected MCP tool names; correct them once `/mcp` shows the real ones.
+- MCP servers and permissions: `.mcp.json` and `.claude/settings.json` (tool names verified in M0.2, D-088, D-089).
+- Mocks: `mocks/` (`.venv/bin/python -m mocks --sink`), contract in `contracts/openapi/` (D-091, D-092).
 - Client deliverable: `docs/client/HireMe_AI_Engagement_Engine_Architecture_and_Flow.docx`.

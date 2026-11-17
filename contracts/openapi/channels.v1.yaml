@@ -1,0 +1,321 @@
+openapi: 3.1.0
+info:
+  title: Outbound channel providers (push, SMS, email, WhatsApp) as the engine calls them
+  version: 1.0.0-rc1
+  description: |
+    The requests the engine's channel adapters send and the responses they expect (docs/API.md §6.2-§6.5).
+    The mock channel services (engage-mocks, D-014) implement this file now and validate every request against it.
+
+    * Push is the FCM HTTP v1 `messages:send` API, restricted to the fields the engine uses. The engine always
+      sets `data.message_id`, so delivery receipts can be matched (the mock requires it).
+    * SMS, email and WhatsApp are the **proposed Grepix gateway contract** (D-066) until Grepix shares its real
+      API (OQ-09); only the adapter changes when it does.
+    * Delivery receipts go to `POST /engage/v1/webhooks/delivery/{provider}` (engage-ingest.v1.yaml).
+    * The mock serves each provider under a prefix: `/mock/fcm`, `/mock/sms`, `/mock/email`, `/mock/whatsapp`.
+servers:
+  - url: https://{host}
+    variables:
+      host: { default: grepix-gateway.example.test }
+paths:
+  /v1/projects/{project_id}/messages:send:
+    servers:
+      - url: https://fcm.googleapis.com
+    post:
+      operationId: fcmSend
+      summary: Send one push notification (FCM HTTP v1)
+      security: [ { oauth2ServiceAccount: [] } ]
+      parameters:
+        - { name: project_id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FcmSendRequest' }
+            examples:
+              b2:
+                value:
+                  message:
+                    token: fcm_tok_synthetic_10042
+                    notification: { title: "Still heading to Connaught Place?", body: "Complete your ride in the next 30 min and save 15% with GO15-7KQ2." }
+                    data:
+                      deep_link: "hireme://book?quote=fq_7781203&drop=DEL-CP&promo=GO15-7KQ2&mid=msg_8f3a91c2e0d4_1&cid=pb_B2_abandoned_booking"
+                      message_id: msg_8f3a91c2e0d4_1
+                      campaign_id: pb_B2_abandoned_booking
+                    android: { priority: HIGH, ttl: 1800s, collapse_key: B2 }
+                    apns: { headers: { apns-priority: "10", apns-expiration: "1792414212" } }
+      responses:
+        '200':
+          description: Accepted by FCM
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FcmSendResponse' }
+              examples:
+                ok: { value: { name: "projects/hireme-engage-dev/messages/0:1792412415%31bd" } }
+        '400': { $ref: '#/components/responses/FcmError' }
+        '404': { $ref: '#/components/responses/FcmError' }
+        '429': { $ref: '#/components/responses/FcmError' }
+        '500': { $ref: '#/components/responses/FcmError' }
+        '503': { $ref: '#/components/responses/FcmError' }
+  /v1/sms:
+    post:
+      operationId: smsSend
+      summary: Send one SMS through the gateway, with TRAI DLT data (proposed, D-066)
+      security: [ { gatewayToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SmsSendRequest' }
+            examples:
+              b2:
+                value:
+                  to: "+919990012345"
+                  sender_id: HIREME
+                  dlt: { pe_id: "1201160000000000000", template_id: "1207166000000000001", category: promotional }
+                  template_vars: { validity_minutes: "30", discount_label: "15%", promo_code: GO15-7KQ2 }
+                  body: "HireMe: Complete your ride in the next 30 min and save 15% with code GO15-7KQ2. T&C apply."
+                  client_ref: msg_8f3a91c2e0d4_2
+                  callback_url: "https://engage-api.example.test/engage/v1/webhooks/delivery/sms"
+      responses:
+        '202':
+          description: Queued; the final status arrives on the delivery webhook (delivered, failed, dnd_blocked)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GatewayAccepted' }
+              examples:
+                queued: { value: { provider_message_id: sms_5531a0c2e1f4, status: queued } }
+        '400': { $ref: '#/components/responses/GatewayError' }
+        '429': { $ref: '#/components/responses/GatewayError' }
+        '503': { $ref: '#/components/responses/GatewayError' }
+  /v1/email:
+    post:
+      operationId: emailSend
+      summary: Send one email through the gateway (proposed, D-066)
+      security: [ { gatewayToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailSendRequest' }
+            examples:
+              d1:
+                value:
+                  to: riya.10042@example.test
+                  from: { email: offers@mail.hireme.app, name: HireMe }
+                  subject: It has been a while, Riya. 25% off to welcome you back
+                  html: "<html><body><p>25% off your next ride with BACK25-H8DQ.</p></body></html>"
+                  text: 25% off your next ride with BACK25-H8DQ.
+                  headers:
+                    List-Unsubscribe: "<https://engage-api.example.test/engage/v1/unsubscribe/tok_abc>"
+                    List-Unsubscribe-Post: List-Unsubscribe=One-Click
+                  client_ref: msg_1c77e0a9b3f2_1
+                  category: marketing
+      responses:
+        '202':
+          description: Queued; delivered, bounced and complained arrive on the delivery webhook
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GatewayAccepted' }
+              examples:
+                queued: { value: { provider_message_id: em_9d01c3b2a4e5, status: queued } }
+        '400': { $ref: '#/components/responses/GatewayError' }
+        '429': { $ref: '#/components/responses/GatewayError' }
+        '503': { $ref: '#/components/responses/GatewayError' }
+  /v1/whatsapp:
+    post:
+      operationId: whatsappSend
+      summary: Send one pre-approved WhatsApp template (Phase 3; proposed, D-066)
+      security: [ { gatewayToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WhatsappSendRequest' }
+            examples:
+              d1:
+                value:
+                  to: "+919990012345"
+                  template:
+                    name: hm_winback_25
+                    language: en
+                    components: [ { type: body, parameters: [ { type: text, text: Pooja }, { type: text, text: "25%" }, { type: text, text: BACK25-H8DQ } ] } ]
+                  client_ref: msg_1c77e0a9b3f2_3
+      responses:
+        '202':
+          description: Queued; delivered, read and failed arrive on the delivery webhook
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GatewayAccepted' }
+              examples:
+                queued: { value: { provider_message_id: wa_77c1e0d2f3a4, status: queued } }
+        '400': { $ref: '#/components/responses/GatewayError' }
+        '503': { $ref: '#/components/responses/GatewayError' }
+components:
+  securitySchemes:
+    oauth2ServiceAccount:
+      type: http
+      scheme: bearer
+      description: Google OAuth2 access token of a service account with the Firebase Cloud Messaging API role.
+    gatewayToken:
+      type: http
+      scheme: bearer
+  responses:
+    FcmError:
+      description: FCM error. UNREGISTERED and INVALID_ARGUMENT are permanent; QUOTA_EXCEEDED, UNAVAILABLE and INTERNAL are retryable (API.md §6.2).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FcmError' }
+    GatewayError:
+      description: Gateway error. 400 is permanent (for example DLT_TEMPLATE_MISMATCH); 429 and 503 are retryable.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GatewayError' }
+  schemas:
+    MessageId:
+      type: string
+      pattern: '^msg_[0-9a-f]{12,32}_[1-9][0-9]?$'
+    FcmSendRequest:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        validate_only: { type: boolean }
+        message:
+          type: object
+          additionalProperties: false
+          required: [token, data]
+          properties:
+            token: { type: string, minLength: 1 }
+            notification:
+              type: object
+              additionalProperties: false
+              properties:
+                title: { type: string, maxLength: 120 }
+                body: { type: string, maxLength: 1000 }
+                image: { type: string }
+            data:
+              type: object
+              description: FCM data values must be strings. The engine always sends message_id and campaign_id.
+              required: [message_id]
+              properties:
+                message_id: { $ref: '#/components/schemas/MessageId' }
+              additionalProperties: { type: string }
+            android:
+              type: object
+              properties:
+                priority: { enum: [NORMAL, HIGH] }
+                ttl: { type: string, pattern: '^[0-9]+(\.[0-9]{1,9})?s$' }
+                collapse_key: { type: string }
+            apns:
+              type: object
+              properties:
+                headers: { type: object, additionalProperties: { type: string } }
+    FcmSendResponse:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, pattern: '^projects/[^/]+/messages/.+$' }
+    FcmError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, status]
+          properties:
+            code: { type: integer }
+            message: { type: string }
+            status: { enum: [INVALID_ARGUMENT, NOT_FOUND, UNAVAILABLE, INTERNAL, RESOURCE_EXHAUSTED, PERMISSION_DENIED, UNAUTHENTICATED] }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  '@type': { type: string }
+                  errorCode: { enum: [UNREGISTERED, INVALID_ARGUMENT, QUOTA_EXCEEDED, UNAVAILABLE, INTERNAL, SENDER_ID_MISMATCH, THIRD_PARTY_AUTH_ERROR] }
+    SmsSendRequest:
+      type: object
+      additionalProperties: false
+      required: [to, sender_id, dlt, body, client_ref]
+      properties:
+        to: { type: string, pattern: '^\+91[6-9][0-9]{9}$' }
+        sender_id: { type: string, pattern: '^[A-Z]{6}$' }
+        dlt:
+          type: object
+          additionalProperties: false
+          required: [pe_id, template_id, category]
+          properties:
+            pe_id: { type: string, minLength: 1 }
+            template_id: { type: string, minLength: 1 }
+            category: { enum: [transactional, service_implicit, service_explicit, promotional] }
+        template_vars: { type: object, additionalProperties: { type: string, maxLength: 30 } }
+        body: { type: string, minLength: 1, maxLength: 1000, description: Must equal the registered DLT template with the variables filled in. }
+        client_ref: { $ref: '#/components/schemas/MessageId' }
+        callback_url: { type: string, format: uri }
+    EmailSendRequest:
+      type: object
+      additionalProperties: false
+      required: [to, from, subject, client_ref, category]
+      anyOf: [ { required: [html] }, { required: [text] } ]
+      properties:
+        to: { type: string, pattern: '^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$' }
+        from:
+          type: object
+          additionalProperties: false
+          required: [email]
+          properties:
+            email: { type: string }
+            name: { type: string }
+        subject: { type: string, minLength: 1, maxLength: 200 }
+        html: { type: string }
+        text: { type: string }
+        headers: { type: object, additionalProperties: { type: string } }
+        client_ref: { $ref: '#/components/schemas/MessageId' }
+        category: { enum: [marketing, transactional, service] }
+      allOf:
+        - if: { properties: { category: { const: marketing } }, required: [category] }
+          then:
+            required: [headers]
+            properties:
+              headers: { required: [List-Unsubscribe, List-Unsubscribe-Post] }
+    WhatsappSendRequest:
+      type: object
+      additionalProperties: false
+      required: [to, template, client_ref]
+      properties:
+        to: { type: string, pattern: '^\+91[6-9][0-9]{9}$' }
+        template:
+          type: object
+          additionalProperties: false
+          required: [name, language]
+          properties:
+            name: { type: string, pattern: '^[a-z0-9_]{1,512}$' }
+            language: { type: string }
+            components:
+              type: array
+              items:
+                type: object
+                required: [type]
+                properties:
+                  type: { enum: [header, body, button] }
+                  parameters:
+                    type: array
+                    items:
+                      type: object
+                      required: [type, text]
+                      properties:
+                        type: { const: text }
+                        text: { type: string }
+        client_ref: { $ref: '#/components/schemas/MessageId' }
+    GatewayAccepted:
+      type: object
+      required: [provider_message_id, status]
+      properties:
+        provider_message_id: { type: string }
+        status: { const: queued }
+    GatewayError:
+      type: object
+      required: [code]
+      properties:
+        code: { enum: [INVALID_REQUEST, DLT_TEMPLATE_MISMATCH, OUTSIDE_PROMOTIONAL_WINDOW, TEMPLATE_NOT_APPROVED, NO_WHATSAPP_CONSENT, RATE_LIMITED, UNAVAILABLE] }
+        message: { type: string }

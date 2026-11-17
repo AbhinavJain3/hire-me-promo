@@ -1,5 +1,9 @@
 # Contract changelog
 
+## Unreleased (next release candidate)
+
+- New `openapi/channels.v1.yaml`: the outbound channel requests the engine sends: FCM HTTP v1 `messages:send` (the subset used, `data.message_id` required) and the proposed Grepix gateway for SMS (with TRAI DLT data), email and WhatsApp (D-092). Additive; no existing payload changes. The mock services validate against it (D-091).
+
 ## 1.0.0-rc1 (2026-11-04)
 
 First machine-readable release candidate (milestone M0.1), built from docs/DATA_MODEL.md and docs/API.md.
