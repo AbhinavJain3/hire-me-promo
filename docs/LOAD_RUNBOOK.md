@@ -12,6 +12,8 @@ How to (re)fill `hireme-engage-dev` with synthetic data and prove it is correct.
 
 The BigQuery sandbox drops partitions older than 60 days and deletes unpartitioned tables 60 days after creation. With 45 days of history, ride, redemption and snapshot partitions start to disappear about 15 days after the load. Check `W01_window_and_retention`: its detail line prints the date ride partitions start to drop. Reload before that date, or before any demo.
 
+Current load (checked 2026-11-17, history 2026-09-25 to 2026-11-08, loaded 2026-11-09): `hireme_backend_stub.rides` partitions start to drop on about **2026-11-23** (oldest partition 2026-09-24); event shards, `engage_sim` and `hireme_ref` tables expire on **2027-01-08**. Planned refresh: **2026-11-25 or 26**, just before gate G0 (27 Nov), with `--history-end yesterday`; a person deletes the old shards (`events_20260925` to the day before the new window starts) so checks see one window.
+
 ## Steps
 
 ```bash
